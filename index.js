@@ -277,6 +277,9 @@ var corsOptions = {
 }
 app.use(cors(corsOptions));
 
+app.get('/', (req, res) => {
+    res.send('API Working fine');
+});
 
 loginId = process.env.loginId
 product = process.env.product

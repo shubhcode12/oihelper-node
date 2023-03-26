@@ -1,4 +1,5 @@
 const express = require('express');
+const tokenRoute = require('./routes/token')
 const app = express();
 const port = 3000
 
@@ -124,9 +125,9 @@ function read_tickers_from_file() {
 
 async function main() {
 
-    loginId = 'DC-PRAN5581'; // use your login ID.
-    product = 'DIRECTRTLITE';
-    apikey = '713A0855358649B795CD'; // use your API Key
+    const loginId = process.env.loginId
+    const product = process.env.product
+    const apikey = process.env.apikey
 
     const authEndPoint = `http://s3.vbiz.in/directrt/gettoken?loginid=${loginId}&product=${product}&apikey=${apikey}`
     let accessToken = ""
@@ -165,21 +166,21 @@ async function main() {
                 console.log('access token: ', access_token)
                 accessToken = access_token;
                 app.post("/access-token", (req, res) => {
-                    mySecret = process.env.MYCUSTOMSECRET                   
+                    mySecret = process.env.MYCUSTOMSECRET
 
-                    if(!req.body.secret){
+                    if (!req.body.secret) {
                         res.json({
-                            message : "secret is not provided"
+                            message: "secret is not provided"
                         })
                     }
 
-                    if(mySecret == req.body.secret){
+                    if (mySecret == req.body.secret) {
                         res.status(200).json({
-                            token : accessToken
+                            token: accessToken
                         })
-                    }else{
+                    } else {
                         res.status(200).json({
-                            message : "provide valid secret key"
+                            message: "provide valid secret key"
                         })
                     }
 
@@ -264,6 +265,8 @@ const axios = require('axios');
 const cors = require("cors");
 require('dotenv').config();
 const paypal = require("paypal-rest-sdk");
+
+app.use("/api", tokenRoute);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -281,9 +284,7 @@ app.get('/', (req, res) => {
     res.send('API Working fine');
 });
 
-loginId = process.env.loginId
-product = process.env.product
-apikey = process.env.apikey
+
 main()
 
 

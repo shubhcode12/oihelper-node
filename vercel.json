@@ -10,11 +10,5 @@
             "src": "/(.*)",
             "dest": "index.js"
         }
-    ],
-    "crons": [
-        {
-          "path": "/api/hello",
-          "schedule": "* * * * *"
-        }    
-      ]
+    ]
 }

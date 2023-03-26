@@ -11,7 +11,8 @@ const getAccessToken = async (req, res) => {
 }
 
 const printHelloCron = async(req, res) =>{
-    res.send("hello cron : " + Math.random)
+    const r = Math.random();
+    res.send(`hello cron : ${r}`)
 }
 
 module.exports = { getAccessToken, printHelloCron };

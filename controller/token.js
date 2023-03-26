@@ -11,6 +11,7 @@ const getAccessToken = async (req, res) => {
 }
 
 const printHelloCron = async(req, res) =>{
+    // example cron job function
     const r = Math.random();
     res.send(`hello cron : ${r}`)
 }

@@ -10,4 +10,8 @@ const getAccessToken = async (req, res) => {
     })
 }
 
-module.exports = { getAccessToken };
+const printHelloCron = async(req, res) =>{
+    res.send("hello cron : " + Math.random)
+}
+
+module.exports = { getAccessToken, printHelloCron };

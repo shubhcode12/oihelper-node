@@ -26,7 +26,7 @@ function subscribe_to_channel(socket, ticker) {
         (async () => {
             for await (let data of myChannel) {
                 // log channel name, and the data to console
-                //   console.log(`channel data received: ${data} - from channel ${ticker}.json`);
+                console.log(`channel data received: ${data} - from channel ${ticker}.json`);
                 handle_message("SUBSCRIPTION-" + channel_name, data)
             }
         })();
@@ -49,6 +49,8 @@ async function runTokenJob() {
 
             if (res.status == 200) {
                 //check the payload, for authentication status returned. exit if not authenticated.
+    const loginId = process.env.loginId
+    const product = process.env.product
 
                 console.log("Response : " + JSON.stringify(res.data));
 
@@ -162,23 +164,28 @@ const refreshAccessToken = async (req, res) => {
 }
 
 const getAccessToken = async (req, res) => {
-    const mySecret = process.env.MYCUSTOMSECRET;
 
-    if (!req.body.secret) {
-        res.json({
-            message: "secret is not provided"
-        })
-    }
+    res.json({
+        token : accessToken
+    })
 
-    if (mySecret == req.body.secret) {
-        res.status(200).json({
-            token: accessToken
-        })
-    } else {
-        res.status(400).json({
-            message: "provide valid secret key"
-        })
-    }
+    // const mySecret = process.env.MYCUSTOMSECRET;
+
+    // if (!req.body.secret) {
+    //     res.json({
+    //         message: "secret is not provided"
+    //     })
+    // }
+
+    // if (mySecret == req.body.secret) {
+    //     res.status(200).json({
+    //         token: accessToken
+    //     })
+    // } else {
+    //     res.status(400).json({
+    //         message: "something went wrong"
+    //     })
+    // }
 }
 
 

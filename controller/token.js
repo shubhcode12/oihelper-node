@@ -164,7 +164,7 @@ const refreshAccessToken = async (req, res) => {
 }
 
 const getAccessToken = async (req, res) => {
-
+    res.header("Access-Control-Allow-Origin", "*");
     res.json({
         token : accessToken
     })

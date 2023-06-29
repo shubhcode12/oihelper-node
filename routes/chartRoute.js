@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const spotChartController = require("../controller/chartController");
+const {getSpotChartData, getPrevSpotChartData} = require("../controller/chartController");
 
 
-router.get("/spotchart", spotChartController.getSpotChartData);
+router.get("/spotchart", getSpotChartData);
+
+router.get("/spotchart/previous", getPrevSpotChartData);
 
 
 module.exports = router;

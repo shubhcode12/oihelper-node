@@ -1,19 +1,17 @@
 const express = require("express");
-const chartRoute = require("./routes/chartRoute");
-const mongoose = require("mongoose");
+const admin = require("firebase-admin");
+const serviceAccount = require("./firebaseService/oihelper-firebase-adminsdk-pdkvc-eec93047f1.json");
+
+// Initialize Firebase admin SDK
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://oihelper-default-rtdb.firebaseio.com",
+});
+
+const db = admin.database();
+
 const app = express();
 const port = 3000;
-
-// Connect to MongoDB
-mongoose.connect("mongodb+srv://shubhcodedev:MYQefezLPhCpjkbT@cluster1.eyydig6.mongodb.net/", {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-const db = mongoose.connection;
-db.on("error", console.error.bind(console, "MongoDB connection error:"));
-db.once("open", () => {
-  console.log("Connected to MongoDB successfully!");
-});
 
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -22,7 +20,6 @@ require("dotenv").config();
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/api", chartRoute);
 
 var corsOptions = {
   origin: "*",
@@ -38,10 +35,32 @@ app.get("/", (req, res) => {
 
 app.get("/spotchart", async (req, res) => {
   try {
-    let symbolParam = req.query;
-    const response = await fetch("https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY");
+    const currentTime = new Date();
+    const marketStartTime = new Date();
+    marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
+    const marketEndTime = new Date();
+    marketEndTime.setHours(15, 30, 0); // Set market end time to 3:30 pm
+
+    // if (currentTime < marketStartTime || currentTime > marketEndTime) {
+    //   // Market is closed, fetch previous data and delete it
+    //   const snapshot = await db.ref("previousData").once("value");
+    //   const previousData = snapshot.val();
+
+    //   await db.ref("previousData").remove();
+
+    //   res.json({ underlyingValue: previousData?.underlyingValue || null });
+    //   return;
+    // }
+
+    const response = await fetch(
+      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+    );
     const data = await response.json();
-    const underlyingValue = data.records.underlyingValue;
+    const underlyingValue = data?.records?.underlyingValue;
+
+    // Save the current underlyingValue and timestamp in Firebase Realtime Database
+    const timestamp = admin.database.ServerValue.TIMESTAMP;
+    await db.ref("previousData").set({ underlyingValue, timestamp });
 
     res.json({ underlyingValue });
   } catch (error) {

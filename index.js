@@ -33,6 +33,18 @@ app.get("/", (req, res) => {
   res.send("API Working fine");
 });
 
+app.get("/prevspotchart", async (req, res) => {
+  try {
+    const snapshot = await db.ref("previousData").orderByChild("timestamp").limitToLast(5).once("value");
+    const data = snapshot.val();
+    const previousData = data ? Object.values(data) : [];
+
+    res.json({ previousData });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch previous data" });
+  }
+});
+
 app.get("/spotchart", async (req, res) => {
   try {
     const currentTime = new Date();
@@ -41,14 +53,13 @@ app.get("/spotchart", async (req, res) => {
     const marketEndTime = new Date();
     marketEndTime.setHours(15, 30, 0); // Set market end time to 3:30 pm
 
+    // delete comment after testing
     // if (currentTime < marketStartTime || currentTime > marketEndTime) {
-    //   // Market is closed, fetch previous data and delete it
-    //   const snapshot = await db.ref("previousData").once("value");
+    //   // Market is closed, fetch previous data
+    //   const snapshot = await db.ref("previousData").orderByChild("timestamp").limitToLast(1).once("value");
     //   const previousData = snapshot.val();
-
-    //   await db.ref("previousData").remove();
-
-    //   res.json({ underlyingValue: previousData?.underlyingValue || null });
+      
+    //   res.json({ underlyingValue: previousData ? previousData.underlyingValue : null });
     //   return;
     // }
 
@@ -60,7 +71,7 @@ app.get("/spotchart", async (req, res) => {
 
     // Save the current underlyingValue and timestamp in Firebase Realtime Database
     const timestamp = admin.database.ServerValue.TIMESTAMP;
-    await db.ref("previousData").set({ underlyingValue, timestamp });
+    await db.ref("previousData").push({ underlyingValue, timestamp });
 
     res.json({ underlyingValue });
   } catch (error) {

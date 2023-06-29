@@ -27,7 +27,7 @@ async function getSpotChartData(req, res) {
       "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
     );
     const data = await response.json();
-    const underlyingValue = data.records.underlyingValue;
+    const underlyingValue = data?.records?.underlyingValue;
 
     
 

@@ -66,6 +66,7 @@ app.get("/getUnderlyingValue", async (req, res) => {
     );
     const data = response.data;
     const underlyingValue = data?.records?.underlyingValue;
+    console.log("New UnderLying Value :  " + underlyingValue); 
 
     // Save the current underlyingValue and timestamp in Firebase Realtime Database
     const timestamp = admin.database.ServerValue.TIMESTAMP;
@@ -85,7 +86,27 @@ app.get("/getUnderlyingValue", async (req, res) => {
 
 });
 
+async function fetchAndSaveUnderlyingValue() {
+  try {
+    const response = await axios.get(
+      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+    );
+    const data = response.data;
+    const underlyingValue = data?.records?.underlyingValue;
 
+    console.log("Cron job running : " + underlyingValue); 
+
+    // Save the current underlyingValue and timestamp in Firebase Realtime Database
+    const timestamp = admin.database.ServerValue.TIMESTAMP;
+    await db.ref("previousData").push({ underlyingValue, timestamp });
+
+    // Update cache with new data
+    cachedData = underlyingValue;
+    cacheExpiry = Date.now() + cacheDuration;
+  } catch (error) {
+    console.error("Failed to fetch and save underlying value:", error);
+  }
+}
 
 // Schedule the job to run every 20 seconds
 cron.schedule("*/20 * * * * *", () => {
@@ -96,8 +117,7 @@ cron.schedule("*/20 * * * * *", () => {
   marketEndTime.setHours(21, 30, 0); // Set market end time to 3:30 pm
 
   if (currentTime >= marketStartTime && currentTime <= marketEndTime) {
-    console.log("Cron job running! Getting UnderlyingValue"); 
-    //fetchAndSaveUnderlyingValue();
+    fetchAndSaveUnderlyingValue();
   }
 });
 

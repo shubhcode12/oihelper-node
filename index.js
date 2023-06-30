@@ -1,6 +1,12 @@
 const express = require("express");
+const axios = require("axios");
 const admin = require("firebase-admin");
 const serviceAccount = require("./firebaseService/oihelper-firebase-adminsdk-pdkvc-eec93047f1.json");
+
+// Caching variables
+let cachedData = null;
+let cacheExpiry = 0;
+const cacheDuration = 5 * 1000; // Cache data for 5 seconds
 
 // Initialize Firebase admin SDK
 admin.initializeApp({
@@ -45,13 +51,43 @@ app.get("/prevspotchart", async (req, res) => {
   }
 });
 
+app.get("/getUnderlyingValue", async (req, res) => {
+  try {
+    const currentTime = Date.now();
+    if (cachedData && currentTime < cacheExpiry) {
+      // Serve cached data if available and not expired
+      res.json({ underlyingValue: cachedData });
+      return;
+    }
+
+    const response = await axios.get(
+      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+    );
+    const data = response.data;
+    const underlyingValue = data?.records?.underlyingValue;
+
+    // Save the current underlyingValue and timestamp in Firebase Realtime Database
+    const timestamp = admin.database.ServerValue.TIMESTAMP;
+    await db.ref("previousData").push({ underlyingValue, timestamp });
+
+    // Update cache with new data
+    cachedData = underlyingValue;
+    cacheExpiry = currentTime + cacheDuration;
+
+    res.json({ underlyingValue });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch data" });
+  }
+
+});
+
 app.get("/spotchart", async (req, res) => {
   try {
-    const currentTime = new Date();
-    const marketStartTime = new Date();
-    marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
-    const marketEndTime = new Date();
-    marketEndTime.setHours(15, 30, 0); // Set market end time to 3:30 pm
+    // const currentTime = new Date();
+    // const marketStartTime = new Date();
+    // marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
+    // const marketEndTime = new Date();
+    // marketEndTime.setHours(15, 30, 0); // Set market end time to 3:30 pm
 
     // delete comment after testing
     // if (currentTime < marketStartTime || currentTime > marketEndTime) {

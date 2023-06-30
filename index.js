@@ -2,6 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const admin = require("firebase-admin");
 const serviceAccount = require("./firebaseService/oihelper-firebase-adminsdk-pdkvc-eec93047f1.json");
+const cron = require("node-cron");
 
 // Caching variables
 let cachedData = null;
@@ -67,18 +68,37 @@ app.get("/getUnderlyingValue", async (req, res) => {
     const underlyingValue = data?.records?.underlyingValue;
 
     // Save the current underlyingValue and timestamp in Firebase Realtime Database
-    // const timestamp = admin.database.ServerValue.TIMESTAMP;
-    // await db.ref("previousData").push({ underlyingValue, timestamp });
+    const timestamp = admin.database.ServerValue.TIMESTAMP;
+    await db.ref("previousData").push({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;
     cacheExpiry = currentTime + cacheDuration;
+
+     // Set cache-control headers
+     res.setHeader("Cache-Control", "public, max-age=60"); // Cache the response for 60 seconds
 
     res.json({ underlyingValue });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch data" });
   }
 
+});
+
+
+
+// Schedule the job to run every 20 seconds
+cron.schedule("*/20 * * * * *", () => {
+  const currentTime = new Date();
+  const marketStartTime = new Date();
+  marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
+  const marketEndTime = new Date();
+  marketEndTime.setHours(21, 30, 0); // Set market end time to 3:30 pm
+
+  if (currentTime >= marketStartTime && currentTime <= marketEndTime) {
+    console.log("Cron job running! Getting UnderlyingValue"); 
+    //fetchAndSaveUnderlyingValue();
+  }
 });
 
 

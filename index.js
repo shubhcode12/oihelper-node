@@ -67,8 +67,8 @@ app.get("/getUnderlyingValue", async (req, res) => {
     const underlyingValue = data?.records?.underlyingValue;
 
     // Save the current underlyingValue and timestamp in Firebase Realtime Database
-    const timestamp = admin.database.ServerValue.TIMESTAMP;
-    await db.ref("previousData").push({ underlyingValue, timestamp });
+    // const timestamp = admin.database.ServerValue.TIMESTAMP;
+    // await db.ref("previousData").push({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;
@@ -81,38 +81,5 @@ app.get("/getUnderlyingValue", async (req, res) => {
 
 });
 
-app.get("/spotchart", async (req, res) => {
-  try {
-    // const currentTime = new Date();
-    // const marketStartTime = new Date();
-    // marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
-    // const marketEndTime = new Date();
-    // marketEndTime.setHours(15, 30, 0); // Set market end time to 3:30 pm
-
-    // delete comment after testing
-    // if (currentTime < marketStartTime || currentTime > marketEndTime) {
-    //   // Market is closed, fetch previous data
-    //   const snapshot = await db.ref("previousData").orderByChild("timestamp").limitToLast(1).once("value");
-    //   const previousData = snapshot.val();
-      
-    //   res.json({ underlyingValue: previousData ? previousData.underlyingValue : null });
-    //   return;
-    // }
-
-    const response = await fetch(
-      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-    );
-    const data = await response.json();
-    const underlyingValue = data?.records?.underlyingValue;
-
-    // Save the current underlyingValue and timestamp in Firebase Realtime Database
-    const timestamp = admin.database.ServerValue.TIMESTAMP;
-    await db.ref("previousData").push({ underlyingValue, timestamp });
-
-    res.json({ underlyingValue });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch data" });
-  }
-});
 
 app.listen(port, () => console.log(`Oihelper app listening on port ${port}!`));

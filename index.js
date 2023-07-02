@@ -70,7 +70,7 @@ app.get("/getUnderlyingValue", async (req, res) => {
 
     // Save the current underlyingValue and timestamp in Firebase Realtime Database
     const timestamp = admin.database.ServerValue.TIMESTAMP;
-    await db.ref("previousData").push({ underlyingValue, timestamp });
+    await db.ref("previousSpotChartData").push({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;
@@ -98,7 +98,7 @@ async function fetchAndSaveUnderlyingValue() {
 
     // Save the current underlyingValue and timestamp in Firebase Realtime Database
     const timestamp = admin.database.ServerValue.TIMESTAMP;
-    await db.ref("previousData").push({ underlyingValue, timestamp });
+    await db.ref("previousSpotChartData").push({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;
@@ -109,17 +109,18 @@ async function fetchAndSaveUnderlyingValue() {
 }
 
 // Schedule the job to run every 20 seconds
-cron.schedule("*/20 * * * * *", () => {
-  const currentTime = new Date();
-  const marketStartTime = new Date();
-  marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
-  const marketEndTime = new Date();
-  marketEndTime.setHours(21, 30, 0); // Set market end time to 3:30 pm
+  cron.schedule("*/10 * * * * *", () => {
+    const currentTime = new Date();
+    const marketStartTime = new Date();
+    marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
+    const marketEndTime = new Date();
+    marketEndTime.setHours(21, 30, 0); // Set market end time to 3:30 pm
 
-  if (currentTime >= marketStartTime && currentTime <= marketEndTime) {
-    fetchAndSaveUnderlyingValue();
-  }
-});
+    if (currentTime >= marketStartTime && currentTime <= marketEndTime) {
+      console.log("hello")
+      //fetchAndSaveUnderlyingValue();
+    }
+  });
 
 
 app.listen(port, () => console.log(`Oihelper app listening on port ${port}!`));

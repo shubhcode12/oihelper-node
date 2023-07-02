@@ -15,7 +15,7 @@ admin.initializeApp({
   databaseURL: "https://oihelper-default-rtdb.firebaseio.com",
 });
 
-const db = admin.database();
+const db = admin.firestore();
 
 const app = express();
 const port = 3000;
@@ -42,9 +42,8 @@ app.get("/", (req, res) => {
 
 app.get("/prevspotchart", async (req, res) => {
   try {
-    const snapshot = await db.ref("previousSpotChartData").orderByChild("timestamp").limitToLast(5).once("value");
-    const data = snapshot.val();
-    const previousSpotChartData = data ? Object.values(data) : [];
+    const snapshot = await db.collection("previousSpotChartData").orderBy("timestamp", "desc").limit(5).get();
+    const previousSpotChartData = snapshot.docs.map((doc) => doc.data());
 
     res.json({ previousSpotChartData });
   } catch (error) {
@@ -61,44 +60,39 @@ app.get("/getUnderlyingValue", async (req, res) => {
       return;
     }
 
-    const response = await axios.get(
-      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-    );
+    const response = await axios.get("https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY");
     const data = response.data;
     const underlyingValue = data?.records?.underlyingValue;
-    console.log("New UnderLying Value :  " + underlyingValue); 
+    console.log("New Underlying Value: " + underlyingValue);
 
-    // Save the current underlyingValue and timestamp in Firebase Realtime Database
-    const timestamp = admin.database.ServerValue.TIMESTAMP;
-    await db.ref("previousSpotChartData").push({ underlyingValue, timestamp });
+    // Save the current underlyingValue and timestamp in Firebase Firestore
+    const timestamp = admin.firestore.Timestamp.now();
+    await db.collection("previousSpotChartData").add({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;
     cacheExpiry = currentTime + cacheDuration;
 
-     // Set cache-control headers
-     res.setHeader("Cache-Control", "public, max-age=60"); // Cache the response for 60 seconds
+    // Set cache-control headers
+    res.setHeader("Cache-Control", "public, max-age=60"); // Cache the response for 60 seconds
 
     res.json({ underlyingValue });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch data" });
   }
-
 });
 
 async function fetchAndSaveUnderlyingValue() {
   try {
-    const response = await axios.get(
-      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-    );
+    const response = await axios.get("https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY");
     const data = response.data;
     const underlyingValue = data?.records?.underlyingValue;
 
-    console.log("Cron job running : " + underlyingValue); 
+    console.log("Cron job running: " + underlyingValue);
 
-    // Save the current underlyingValue and timestamp in Firebase Realtime Database
-    const timestamp = admin.database.ServerValue.TIMESTAMP;
-    await db.ref("previousSpotChartData").push({ underlyingValue, timestamp });
+    // Save the current underlyingValue and timestamp in Firebase Firestore
+    const timestamp = admin.firestore.Timestamp.now();
+    await db.collection("previousSpotChartData").add({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;
@@ -109,18 +103,17 @@ async function fetchAndSaveUnderlyingValue() {
 }
 
 // Schedule the job to run every 20 seconds
-  // cron.schedule("*/10 * * * * *", () => {
-  //   const currentTime = new Date();
-  //   const marketStartTime = new Date();
-  //   marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
-  //   const marketEndTime = new Date();
-  //   marketEndTime.setHours(21, 30, 0); // Set market end time to 3:30 pm
+// cron.schedule("*/10 * * * * *", () => {
+//   const currentTime = new Date();
+//   const marketStartTime = new Date();
+//   marketStartTime.setHours(9, 0, 0); // Set market start time to 9 am
+//   const marketEndTime = new Date();
+//   marketEndTime.setHours(21, 30, 0); // Set market end time to 3:30 pm
 
-  //   if (currentTime >= marketStartTime && currentTime <= marketEndTime) {
-  //     console.log("hello")
-  //     //fetchAndSaveUnderlyingValue();
-  //   }
-  // });
-
+//   if (currentTime >= marketStartTime && currentTime <= marketEndTime) {
+//     console.log("hello");
+//     // fetchAndSaveUnderlyingValue();
+//   }
+// });
 
 app.listen(port, () => console.log(`Oihelper app listening on port ${port}!`));

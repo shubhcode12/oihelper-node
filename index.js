@@ -44,9 +44,9 @@ app.get("/prevspotchart", async (req, res) => {
   try {
     const snapshot = await db.ref("previousSpotChartData").orderByChild("timestamp").limitToLast(5).once("value");
     const data = snapshot.val();
-    const previousData = data ? Object.values(data) : [];
+    const previousSpotChartData = data ? Object.values(data) : [];
 
-    res.json({ previousData });
+    res.json({ previousSpotChartData });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch previous data" });
   }

@@ -42,7 +42,7 @@ app.get("/", (req, res) => {
 
 app.get("/prevspotchart", async (req, res) => {
   try {
-    const snapshot = await db.ref("previousData").orderByChild("timestamp").limitToLast(5).once("value");
+    const snapshot = await db.ref("previousSpotChartData").orderByChild("timestamp").limitToLast(5).once("value");
     const data = snapshot.val();
     const previousData = data ? Object.values(data) : [];
 

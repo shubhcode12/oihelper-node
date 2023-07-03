@@ -81,9 +81,9 @@ app.get("/getUnderlyingValue", async (req, res) => {
 
     // Save the current underlyingValue and timestamp in Firebase Firestore
     const timestamp = admin.firestore.Timestamp.now();
-    await db
-      .collection("previousSpotChartData")
-      .add({ underlyingValue, timestamp });
+    // await db
+    //   .collection("previousSpotChartData")
+    //   .add({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;

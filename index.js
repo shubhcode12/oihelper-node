@@ -42,7 +42,11 @@ app.get("/", (req, res) => {
 
 app.get("/prevspotchart", async (req, res) => {
   try {
-    const snapshot = await db.collection("previousSpotChartData").orderBy("timestamp", "desc").limit(5).get();
+    const snapshot = await db
+      .collection("previousSpotChartData")
+      .orderBy("timestamp", "desc")
+      .limit(5)
+      .get();
     const previousSpotChartData = snapshot.docs.map((doc) => doc.data());
 
     res.json({ previousSpotChartData });
@@ -55,10 +59,11 @@ app.get("/getUnderlyingValue", async (req, res) => {
   try {
     const currentTime = Date.now();
     const headers = {
-      'Accept': '*/*',
+      'Accept': '[asterisk]/[asterisk]',
       'Accept-Encoding': 'gzip, deflate, br',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
-      'Connection': 'keep-alive'
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
+      'Connection': 'keep-alive',
     };
     if (cachedData && currentTime < cacheExpiry) {
       // Serve cached data if available and not expired
@@ -66,14 +71,19 @@ app.get("/getUnderlyingValue", async (req, res) => {
       return;
     }
 
-    const response = await axios.get("https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY", { headers });
+    const response = await axios.get(
+      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY",
+      { headers }
+    );
     const data = response.data;
     const underlyingValue = data?.records?.underlyingValue;
     console.log("New Underlying Value: " + underlyingValue);
 
     // Save the current underlyingValue and timestamp in Firebase Firestore
     const timestamp = admin.firestore.Timestamp.now();
-    await db.collection("previousSpotChartData").add({ underlyingValue, timestamp });
+    await db
+      .collection("previousSpotChartData")
+      .add({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;
@@ -91,12 +101,16 @@ app.get("/getUnderlyingValue", async (req, res) => {
 async function fetchAndSaveUnderlyingValue() {
   try {
     const headers = {
-      'Accept': '*/*',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
-      'Connection': 'keep-alive'
+      Accept: "*/*",
+      "Accept-Encoding": "gzip, deflate, br",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
+      Connection: "keep-alive",
     };
-    const response = await axios.get("https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY", {headers});
+    const response = await axios.get(
+      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY",
+      { headers }
+    );
     const data = response.data;
     const underlyingValue = data?.records?.underlyingValue;
 
@@ -104,7 +118,9 @@ async function fetchAndSaveUnderlyingValue() {
 
     // Save the current underlyingValue and timestamp in Firebase Firestore
     const timestamp = admin.firestore.Timestamp.now();
-    await db.collection("previousSpotChartData").add({ underlyingValue, timestamp });
+    await db
+      .collection("previousSpotChartData")
+      .add({ underlyingValue, timestamp });
 
     // Update cache with new data
     cachedData = underlyingValue;

@@ -95,37 +95,18 @@ app.get("/optionchain", async (req, res) => {
   }
 });
 
-async function fetchAndSaveUnderlyingValue() {
+app.get("/indexquote", async (req, res) => {
   try {
-    const headers = {
-      Accept: "*/*",
-      "Accept-Encoding": "gzip, deflate, br",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
-      Connection: "keep-alive",
-    };
-    const response = await axios.get(
-      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY",
-      { headers }
-    );
-    const data = response.data;
-    const underlyingValue = data?.records?.underlyingValue;
+    const index = req.body.index;
 
-    console.log("Cron job running: " + underlyingValue);
-
-    // Save the current underlyingValue and timestamp in Firebase Firestore
-    const timestamp = admin.firestore.Timestamp.now();
-    await db
-      .collection("previousSpotChartData")
-      .add({ underlyingValue, timestamp });
-
-    // Update cache with new data
-    cachedData = underlyingValue;
-    cacheExpiry = Date.now() + cacheDuration;
+    const indexQuoteData = await sn.snapi.getIndexQuotes(index);
+    res.send(indexQuoteData);
   } catch (error) {
-    console.error("Failed to fetch and save underlying value:", error);
+    console.error("Error fetching Index Quote:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
-}
+});
+
 
 // Schedule the job to run every 20 seconds
 // cron.schedule("*/10 * * * * *", () => {

@@ -4,10 +4,10 @@ const admin = require("firebase-admin");
 const serviceAccount = require("./firebaseService/oihelper-firebase-adminsdk-pdkvc-eec93047f1.json");
 const cron = require("node-cron");
 
-// Caching variables
-let cachedData = null;
-let cacheExpiry = 0;
-const cacheDuration = 5 * 1000; // Cache data for 5 seconds
+const userId = process.env.USERID;
+const password = process.env.PASSWORD;
+const yob = process.env.YOB;
+const dbUrl = process.env.DATABASE_URL;
 
 // Initialize Firebase admin SDK
 admin.initializeApp({

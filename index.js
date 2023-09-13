@@ -13,7 +13,7 @@ const dbUrl = process.env.DATABASE_URL;
 // Initialize Firebase admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://oihelper-default-rtdb.firebaseio.com",
+  databaseURL: dbUrl,
 });
 
 const db = admin.firestore();
@@ -37,22 +37,24 @@ var corsOptions = {
 };
 app.use(cors(corsOptions));
 
-app.get("/", (req, res) => {
-  res.send("API Working fine");
-});
+var logindata = {
+  body: {
+    userId: userId,
+    password: password,
+    yob: yob,
+  },
+};
 
-app.get("/prevspotchart", async (req, res) => {
+async function setSessionToken() {
   try {
-    const snapshot = await db
-      .collection("previousSpotChartData")
-      .orderBy("timestamp", "desc")
-      .limit(5)
-      .get();
-    const previousSpotChartData = snapshot.docs.map((doc) => doc.data());
+    const loginResponse = await sn.snapi.userLogin(logindata);
+    const responce = JSON.parse(loginResponse);
 
-    res.json({ previousSpotChartData });
+    const sessionToken = responce["sessionToken"];
+    sn.snapi.setSessionToken(sessionToken);
+    console.log("Session Token set:", sessionToken);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch previous data" });
+    console.error("Error setting Session Token:", error);
   }
 });
 
@@ -70,15 +72,9 @@ app.get("/getUnderlyingValue", async (req, res) => {
       // Serve cached data if available and not expired
       res.json({ underlyingValue: cachedData });
       return;
-    }
+}
 
-    const response = await axios.get(
-      "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY",
-      { headers }
-    );
-    const data = response.data;
-    const underlyingValue = data?.records?.underlyingValue;
-    console.log("New Underlying Value: " + underlyingValue);
+setSessionToken();
 
     // Save the current underlyingValue and timestamp in Firebase Firestore
     const timestamp = admin.firestore.Timestamp.now();

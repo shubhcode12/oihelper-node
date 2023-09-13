@@ -2,7 +2,8 @@ const express = require("express");
 const axios = require("axios");
 const admin = require("firebase-admin");
 const serviceAccount = require("./firebaseService/oihelper-firebase-adminsdk-pdkvc-eec93047f1.json");
-const cron = require("node-cron");
+var sn = require("stocknotejsbridge");
+require("dotenv").config();
 
 const userId = process.env.USERID;
 const password = process.env.PASSWORD;

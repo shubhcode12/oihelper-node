@@ -76,22 +76,22 @@ app.get("/getUnderlyingValue", async (req, res) => {
 
 setSessionToken();
 
-    // Save the current underlyingValue and timestamp in Firebase Firestore
-    const timestamp = admin.firestore.Timestamp.now();
-    // await db
-    //   .collection("previousSpotChartData")
-    //   .add({ underlyingValue, timestamp });
+app.get("/optionchain", async (req, res) => {
+  try {
+    const symbol = req.body.symbol;
 
-    // Update cache with new data
-    cachedData = underlyingValue;
-    cacheExpiry = currentTime + cacheDuration;
+    const options = {
+      expiryDate: "2023-09-28",
+      optionType: sn.constants.OPTION_TYPE_PE,
+      strikePrice: "3600",
+      exchange: sn.constants.EXCHANGE_NFO,
+    };
 
-    // Set cache-control headers
-    res.setHeader("Cache-Control", "public, max-age=60"); // Cache the response for 60 seconds
-
-    res.json({ underlyingValue });
+    const optionChainData = await sn.snapi.optionchain(symbol, options);
+    res.send(optionChainData);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch data" });
+    console.error("Error fetching Option Chain:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

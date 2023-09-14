@@ -34,9 +34,9 @@ app.use(cors(corsOptions));
 
 var logindata = {
   body: {
-    userId: userId,
-    password: password,
-    yob: yob,
+    userId: "DS83807",
+    password: "Ass#pass1",
+    yob: "1999",
   },
 };
 

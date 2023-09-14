@@ -91,7 +91,7 @@ app.get("/searchoptions", async (req, res) => {
     exchange: sn.constants.EXCHANGE_NFO,
   };
   sn.snapi
-    .search("BANKNIFTY", search)
+    .search("NIFTY", search)
     .then((data) => {
       console.log("Search:" + data);
       res.send(data)

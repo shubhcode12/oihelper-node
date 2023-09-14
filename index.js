@@ -86,6 +86,22 @@ app.get("/indexquote", async (req, res) => {
   }
 });
 
+app.get("/searchoptions", async (req, res) => {
+  var search = {
+    exchange: sn.constants.EXCHANGE_NFO,
+  };
+  sn.snapi
+    .search("BANKNIFTY", search)
+    .then((data) => {
+      console.log("Search:" + data);
+      res.send(data)
+    })
+    .catch((error) => {
+      console.log(error);
+      res.send(error)
+    });
+});
+
 app.get("/", (req, res) => {
   res.send("API Working fine");
 });

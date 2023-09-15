@@ -58,16 +58,18 @@ setSessionToken();
 app.get("/optionchain", async (req, res) => {
   try {
     const symbol = req.body.symbol;
+    const expiryDate = req.body.expiryDate;
+    const strikePrice = req.body.strikePrice;
 
     const options = {
-      expiryDate: "2023-09-28",
+      expiryDate: expiryDate,
       optionType: sn.constants.OPTION_TYPE_PE,
-      strikePrice: "3600",
+      strikePrice: strikePrice,
       exchange: sn.constants.EXCHANGE_NFO,
     };
 
     const optionChainData = await sn.snapi.optionchain(symbol, options);
-    res.send(optionChainData);
+    res.json(JSON.parse(optionChainData));
   } catch (error) {
     console.error("Error fetching Option Chain:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -87,18 +89,70 @@ app.get("/indexquote", async (req, res) => {
 });
 
 app.get("/searchoptions", async (req, res) => {
+  console.log("Endpoint accessed");
   var search = {
     exchange: sn.constants.EXCHANGE_NFO,
   };
+
   sn.snapi
     .search("NIFTY", search)
     .then((data) => {
-      console.log("Search:" + data);
-      res.send(data)
+      console.log("Search result received");
+
+      const response = JSON.parse(data);
+
+      const niftyResults = response.searchResults.filter(
+        (item) =>
+          item.tradingSymbol.startsWith("NIFTY") ||
+          item.tradingSymbol.startsWith("BANKNIFTY")
+      );
+
+      const monthMap = {
+        JAN: "01",
+        FEB: "02",
+        MAR: "03",
+        APR: "04",
+        MAY: "05",
+        JUN: "06",
+        JUL: "07",
+        AUG: "08",
+        SEP: "09",
+        OCT: "10",
+        NOV: "11",
+        DEC: "12",
+      };
+
+      const parsedData = niftyResults
+        .map((item) => {
+          const match = item.tradingSymbol.match(
+            /^(\w+?)(\d{2})([A-Z]{3})(\d{2})(\d+)([CEPE]+)$/
+          );
+
+          if (match) {
+            const day = match[2];
+            const month = monthMap[match[3]];
+            const year = "20" + match[4];
+            const formattedDate = `${year}-${month}-${day}`;
+
+            console.log("formated date " + formattedDate);
+            return {
+              symbol: match[1],
+              date: formattedDate,
+              strikePrice: match[5],
+              type: match[6],
+            };
+          }
+          return null;
+        })
+        .filter((item) => item !== null);
+
+      console.log(parsedData);
+
+      res.json(parsedData);
     })
     .catch((error) => {
-      console.log(error);
-      res.send(error)
+      console.error("Error occurred: ", error);
+      res.status(500).send("Internal Server Error");
     });
 });
 

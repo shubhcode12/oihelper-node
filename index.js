@@ -2,6 +2,7 @@ const express = require("express");
 const admin = require("firebase-admin");
 const serviceAccount = require("./firebaseService/oihelper-firebase-adminsdk-pdkvc-eec93047f1.json");
 var sn = require("stocknotejsbridge");
+var cron = require("node-cron");
 require("dotenv").config();
 
 const userId = process.env.USERID;
@@ -13,6 +14,9 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: dbUrl,
 });
+
+const db = admin.database();
+const optionDataRef = db.ref("optionData").push();
 
 const app = express();
 const port = 3000;
@@ -101,10 +105,8 @@ app.get("/searchoptions", async (req, res) => {
 
       const response = JSON.parse(data);
 
-      const niftyResults = response.searchResults.filter(
-        (item) =>
-          item.tradingSymbol.startsWith("NIFTY") ||
-          item.tradingSymbol.startsWith("BANKNIFTY")
+      const niftyResults = response.searchResults.filter((item) =>
+        item.tradingSymbol.startsWith("NIFTY")
       );
 
       const monthMap = {
@@ -134,7 +136,6 @@ app.get("/searchoptions", async (req, res) => {
             const year = "20" + match[4];
             const formattedDate = `${year}-${month}-${day}`;
 
-            console.log("formated date " + formattedDate);
             return {
               symbol: match[1],
               date: formattedDate,
@@ -144,17 +145,192 @@ app.get("/searchoptions", async (req, res) => {
           }
           return null;
         })
-        .filter((item) => item !== null);
+        .filter((item) => item !== null)
+        .filter((item) => item.date.includes("2023-09-21"));
 
-      console.log(parsedData);
+      const collectionRef = db.ref("septemberData");
+      collectionRef
+        .set(parsedData)
+        .then(() => {
+          res.json({ "Data save to firebase : ": parsedData });
+        })
+        .catch((err) => {
+          res.status(500).send("Unable to save data to firebase" + err);
+        });
 
-      res.json(parsedData);
+      //res.json(parsedData);
     })
     .catch((error) => {
       console.error("Error occurred: ", error);
       res.status(500).send("Internal Server Error");
     });
 });
+
+const fetchAndSaveOptionChainData = async (option) => {
+  try {
+    const symbol = option.symbol === "NIFTY" ? "NIFTY" : "BANKNIFTY";
+
+    const options = {
+      expiryDate: "2023-09-28",
+      optionType:
+        option.type === "CE"
+          ? sn.constants.OPTION_TYPE_CE
+          : sn.constants.OPTION_TYPE_PE,
+      strikePrice: option.strikePrice,
+      exchange: sn.constants.EXCHANGE_NFO,
+    };
+
+    const optionChainData = await sn.snapi.optionchain(symbol, options);
+
+    let response;
+    try {
+      response = JSON.parse(optionChainData);
+    } catch (jsonParseError) {
+      console.error(
+        `Invalid JSON response for ${symbol} ${option.date} ${option.strikePrice}.`
+      );
+      return;
+    }
+   
+
+    
+
+    optionDataRef.push(response).then(() => {
+      console.log(
+        `Option chain data for ${option.symbol} ${option.date} ${option.strikePrice} saved.`
+      );
+    });
+  } catch (error) {
+    console.error(
+      `Error occurred for ${symbol} ${option.date} ${option.strikePrice}:`,
+      error
+    );
+  }
+};
+
+
+app.get("/spotdata", async (req, res) => {
+  try {
+    const septemberDataRef = db.ref("septemberData");
+    const snapshot = await septemberDataRef.once("value");
+    const septemberData = snapshot.val();
+
+    if (!septemberData) {
+      console.log("No September data found.");
+      return res.status(404).send("No September data found.");
+    }
+
+    const options = Object.values(septemberData);
+    const batchSize = 1;
+    for (let i = 0; i < options.length; i += batchSize) {
+      const batch = options.slice(i, i + batchSize);
+
+      const promises = batch.map((option) =>
+        fetchAndSaveOptionChainData(option)
+      );
+
+      await Promise.all(promises);
+    }
+
+    console.log("All option data added successfully");
+
+    res.send("All option data added successfully");
+  } catch (error) {
+    console.error("Error adding option data:", error);
+    res.status(500).send("Error adding option data");
+  }
+});
+
+
+
+// Function to calculate and save total open interest
+async function calculateAndSaveTotalOI() {
+  const optionChainRef = db.ref("optionData");
+
+  optionChainRef.on("child_added", async (snapshot) => {
+    const childCount = (await optionChainRef.once("value")).numChildren();
+
+    console.log("childcount of optionchain collection is : " + childCount)
+
+    // Check if there are at least 130 children in the "optionChain" collection
+    // if (childCount >= 6) {
+    //   // Calculate the total open interest
+    //   let totalOI = 0;
+    //   snapshot.forEach((childSnapshot) => {
+    //     const data = childSnapshot.val();
+    //     if (data.openInterest) {
+    //       totalOI += parseInt(data.openInterest);
+    //     }
+    //   });
+
+    //   // Get the current timestamp
+    //   const currentTimestamp = Date.now();
+
+    //   // Save the total open interest and timestamp in "totalOIGraph"
+    //   const totalOIGraphRef = db.ref("totalOIGraph").push();
+    //   await totalOIGraphRef.set({
+    //     timestamp: currentTimestamp,
+    //     total: totalOI,
+    //   });
+
+    //   console.log("Total open interest calculated and saved.");
+    // } else {
+    //   console.log("Not enough children in the 'optionChain' collection (less than 6).");
+    // }
+
+  });
+
+
+}
+
+optionDataRef.on("child_added", calculateAndSaveTotalOI);
+
+
+app.get("/addOIdata", async (req, res)  => {
+  var ref = db.ref("optionData");
+  await ref.once("value", function (snapshot) {
+    if (snapshot.exists) {
+      var responce = snapshot.val();
+      
+      res.send(`${Object.keys(responce).length}`);
+    }else{
+      console.log("optiondata not exist")
+      res.send("optiondata not exist");
+    }
+  });
+});
+
+
+// cron.schedule("*/2 * * * *", async () => {
+//   try {
+//     const septemberDataRef = db.ref("septemberData");
+//     const snapshot = await septemberDataRef.once("value");
+//     const septemberData = snapshot.val();
+
+//     if (!septemberData) {
+//       console.log("No September data found.");
+//       return res.status(404).send("No September data found.");
+//     }
+
+//     const options = Object.values(septemberData);
+//     const batchSize = 1;
+//     for (let i = 0; i < options.length; i += batchSize) {
+//       const batch = options.slice(i, i + batchSize);
+
+//       const promises = batch.map((option) =>
+//         fetchAndSaveOptionChainData(option)
+//       );
+
+//       await Promise.all(promises);
+//     }
+
+//     console.log("All option data added successfully");
+
+//   } catch (error) {
+//     console.error("Error adding option data:", error);
+
+//   }
+// });
 
 app.get("/", (req, res) => {
   res.send("API Working fine");

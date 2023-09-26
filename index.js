@@ -182,24 +182,7 @@ const fetchAndSaveOptionChainData = async (option) => {
 
     const optionChainData = await sn.snapi.optionchain(symbol, options);
 
-    let response;
-    try {
-      response = JSON.parse(optionChainData);
-    } catch (jsonParseError) {
-      console.error(
-        `Invalid JSON response for ${symbol} ${option.date} ${option.strikePrice}.`
-      );
-      return;
-    }
-   
-
-    
-
-    optionDataRef.push(response).then(() => {
-      console.log(
-        `Option chain data for ${option.symbol} ${option.date} ${option.strikePrice} saved.`
-      );
-    });
+    return JSON.parse(optionChainData);
   } catch (error) {
     console.error(
       `Error occurred for ${symbol} ${option.date} ${option.strikePrice}:`,
@@ -208,98 +191,79 @@ const fetchAndSaveOptionChainData = async (option) => {
   }
 };
 
-
 app.get("/spotdata", async (req, res) => {
   try {
+    console.log("routes here");
     const septemberDataRef = db.ref("septemberData");
-    const snapshot = await septemberDataRef.once("value");
-    const septemberData = snapshot.val();
 
-    if (!septemberData) {
-      console.log("No September data found.");
-      return res.status(404).send("No September data found.");
+    try {
+      const snapshot = await septemberDataRef.once("value");
+      const septemberData = snapshot.val();
+
+      const batchSize = 1;
+      const data = [];
+      let sum = 0;
+      for (let i = 0; i < Object.values(septemberData).length; i += batchSize) {
+        const batchOptions = Object.values(septemberData).slice(
+          i,
+          i + batchSize
+        );
+        const promises = batchOptions.map((option) =>
+          fetchAndSaveOptionChainData(option)
+        );
+        const [resData] = await Promise.all(promises);
+
+        const temp = resData.optionChainDetails[0];
+        const { bestBids, bestAsks, ...newobj } = temp;
+
+        sum += parseFloat(newobj.spotPrice);
+        console.log(newobj.spotPrice, sum);
+        data.push(newobj);
+      }
+
+      await optionDataRef.push(data);
+
+      const totalOiGraphRef = db.ref("totalOiGraph");
+
+      sumData = {
+        timestamp: Date.now(),
+        total: sum,
+      };
+
+      console.log({
+        timestamp: Date.now(),
+        total: sum,
+      });
+
+      totalOiGraphRef.push(sumData).then(() => {
+        console.log("Sum calculated and saved to database");
+      });
+
+      console.log("All option data added successfully");
+      res.send("All option data added successfully");
+    } catch (error) {
+      console.error("An error occurred:", error);
+      res.status(500).send("Internal Server Error");
     }
-
-    const options = Object.values(septemberData);
-    const batchSize = 1;
-    for (let i = 0; i < options.length; i += batchSize) {
-      const batch = options.slice(i, i + batchSize);
-
-      const promises = batch.map((option) =>
-        fetchAndSaveOptionChainData(option)
-      );
-
-      await Promise.all(promises);
-    }
-
-    console.log("All option data added successfully");
-
-    res.send("All option data added successfully");
   } catch (error) {
     console.error("Error adding option data:", error);
     res.status(500).send("Error adding option data");
   }
 });
 
-
-
-// Function to calculate and save total open interest
-async function calculateAndSaveTotalOI() {
-  const optionChainRef = db.ref("optionData");
-
-  optionChainRef.on("child_added", async (snapshot) => {
-    const childCount = (await optionChainRef.once("value")).numChildren();
-
-    console.log("childcount of optionchain collection is : " + childCount)
-
-    // Check if there are at least 130 children in the "optionChain" collection
-    // if (childCount >= 6) {
-    //   // Calculate the total open interest
-    //   let totalOI = 0;
-    //   snapshot.forEach((childSnapshot) => {
-    //     const data = childSnapshot.val();
-    //     if (data.openInterest) {
-    //       totalOI += parseInt(data.openInterest);
-    //     }
-    //   });
-
-    //   // Get the current timestamp
-    //   const currentTimestamp = Date.now();
-
-    //   // Save the total open interest and timestamp in "totalOIGraph"
-    //   const totalOIGraphRef = db.ref("totalOIGraph").push();
-    //   await totalOIGraphRef.set({
-    //     timestamp: currentTimestamp,
-    //     total: totalOI,
-    //   });
-
-    //   console.log("Total open interest calculated and saved.");
-    // } else {
-    //   console.log("Not enough children in the 'optionChain' collection (less than 6).");
-    // }
-
-  });
-
-
-}
-
-optionDataRef.on("child_added", calculateAndSaveTotalOI);
-
-
-app.get("/addOIdata", async (req, res)  => {
+app.get("/addOIdata", async (req, res) => {
   var ref = db.ref("optionData");
   await ref.once("value", function (snapshot) {
     if (snapshot.exists) {
       var responce = snapshot.val();
-      
+
       res.send(`${Object.keys(responce).length}`);
-    }else{
-      console.log("optiondata not exist")
+    } else {
+      console.log("optiondata not exist");
       res.send("optiondata not exist");
     }
   });
 });
-
 
 // cron.schedule("*/2 * * * *", async () => {
 //   try {
@@ -337,3 +301,19 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => console.log(`Oihelper app listening on port ${port}!`));
+// function printNumbersSequentially() {
+//   let i = 1;
+
+//   function printNumber() {
+//     console.log(i);
+//     i++;
+
+//     if (i <= 3) {
+//       setTimeout(printNumber, 300); // Wait for 2 seconds before printing the next number
+//     }
+//   }
+
+//   printNumber(); // Start the sequence
+// }
+
+// printNumbersSequentially();

@@ -1,32 +1,25 @@
+require('dotenv').config()
 const express = require("express");
 const admin = require("firebase-admin");
-const serviceAccount = require("./firebaseService/oihelper-firebase-adminsdk-pdkvc-eec93047f1.json");
 var sn = require("stocknotejsbridge");
 var cron = require("node-cron");
-require("dotenv").config();
+const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_CREDENTIALS_BASE64, 'base64').toString());
 
-const userId = process.env.USERID;
-const password = process.env.PASSWORD;
-const yob = process.env.YOB;
-const dbUrl = process.env.DATABASE_URL;
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: dbUrl,
+  databaseURL: process.env.DATABASE_URL,
 });
-
+const PORT = process.env.PORT || 3000;
 const db = admin.database();
-const optionDataRef = db.ref("optionData").push();
-
 const app = express();
-const port = 3000;
-
 const bodyParser = require("body-parser");
 const cors = require("cors");
-
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+const optionDataRef = db.ref("optionData");
+
 
 var corsOptions = {
   origin: "*",
@@ -38,9 +31,9 @@ app.use(cors(corsOptions));
 
 var logindata = {
   body: {
-    userId: "DS83807",
-    password: "Ass#pass1",
-    yob: "1999",
+    userId: process.env.USERID,
+    password: process.env.PASSWORD,
+    yob: process.env.YOB,
   },
 };
 
@@ -193,7 +186,6 @@ const fetchAndSaveOptionChainData = async (option) => {
 
 app.get("/spotdata", async (req, res) => {
   try {
-    console.log("routes here");
     const septemberDataRef = db.ref("septemberData");
 
     try {
@@ -216,7 +208,7 @@ app.get("/spotdata", async (req, res) => {
         const temp = resData.optionChainDetails[0];
         const { bestBids, bestAsks, ...newobj } = temp;
 
-        sum += parseFloat(newobj.spotPrice);
+        sum += parseFloat(newobj.openInterest);
         console.log(newobj.spotPrice, sum);
         data.push(newobj);
       }
@@ -265,31 +257,59 @@ app.get("/addOIdata", async (req, res) => {
   });
 });
 
-// cron.schedule("*/2 * * * *", async () => {
+// cron.schedule("*/5 * * * *", async () => {
 //   try {
 //     const septemberDataRef = db.ref("septemberData");
-//     const snapshot = await septemberDataRef.once("value");
-//     const septemberData = snapshot.val();
 
-//     if (!septemberData) {
-//       console.log("No September data found.");
-//       return res.status(404).send("No September data found.");
+//     try {
+//       const snapshot = await septemberDataRef.once("value");
+//       const septemberData = snapshot.val();
+
+//       const batchSize = 1;
+//       const data = [];
+//       let sum = 0;
+//       for (let i = 0; i < Object.values(septemberData).length; i += batchSize) {
+//         const batchOptions = Object.values(septemberData).slice(
+//           i,
+//           i + batchSize
+//         );
+//         const promises = batchOptions.map((option) =>
+//           fetchAndSaveOptionChainData(option)
+//         );
+//         const [resData] = await Promise.all(promises);
+
+//         const temp = resData.optionChainDetails[0];
+//         const { bestBids, bestAsks, ...newobj } = temp;
+
+//         sum += parseFloat(newobj.openInterest);
+//         console.log(newobj.spotPrice, sum);
+//         data.push(newobj);
+//       }
+
+//       await optionDataRef.push(data);
+
+//       const totalOiGraphRef = db.ref("totalOiGraph");
+
+//       sumData = {
+//         timestamp: Date.now(),
+//         total: sum,
+//       };
+
+//       console.log({
+//         timestamp: Date.now(),
+//         total: sum,
+//       });
+
+//       totalOiGraphRef.push(sumData).then(() => {
+//         console.log("Sum calculated and saved to database");
+//       });
+
+//       console.log("All option data added successfully");
+
+//     } catch (error) {
+//       console.error("An error occurred:", error);
+
 //     }
-
-//     const options = Object.values(septemberData);
-//     const batchSize = 1;
-//     for (let i = 0; i < options.length; i += batchSize) {
-//       const batch = options.slice(i, i + batchSize);
-
-//       const promises = batch.map((option) =>
-//         fetchAndSaveOptionChainData(option)
-//       );
-
-//       await Promise.all(promises);
-//     }
-
-//     console.log("All option data added successfully");
-
 //   } catch (error) {
 //     console.error("Error adding option data:", error);
 
@@ -300,20 +320,4 @@ app.get("/", (req, res) => {
   res.send("API Working fine");
 });
 
-app.listen(port, () => console.log(`Oihelper app listening on port ${port}!`));
-// function printNumbersSequentially() {
-//   let i = 1;
-
-//   function printNumber() {
-//     console.log(i);
-//     i++;
-
-//     if (i <= 3) {
-//       setTimeout(printNumber, 300); // Wait for 2 seconds before printing the next number
-//     }
-//   }
-
-//   printNumber(); // Start the sequence
-// }
-
-// printNumbersSequentially();
+app.listen(process.env.PORT, () => console.log(`Oihelper app listening on port ${process.env.PORT}!`));

@@ -1,10 +1,11 @@
-require('dotenv').config()
+require("dotenv").config();
 const express = require("express");
 const admin = require("firebase-admin");
 var sn = require("stocknotejsbridge");
 var cron = require("node-cron");
-const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_CREDENTIALS_BASE64, 'base64').toString());
-
+const serviceAccount = JSON.parse(
+  Buffer.from(process.env.FIREBASE_CREDENTIALS_BASE64, "base64").toString()
+);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -19,7 +20,8 @@ app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const optionDataRef = db.ref("optionData");
-
+const strikesDataRef = db.ref("strikesData");
+const strikesParamsRef = db.ref("strikesParams");
 
 var corsOptions = {
   origin: "*",
@@ -51,6 +53,15 @@ async function setSessionToken() {
 }
 
 setSessionToken();
+
+function getNextThursday() {
+  const now = new Date();
+  let nextThursday = new Date(now);
+  nextThursday.setDate(now.getDate() + ((11 - now.getDay()) % 7));
+  return `${nextThursday.getFullYear()}-${String(
+    nextThursday.getMonth() + 1
+  ).padStart(2, "0")}-${String(nextThursday.getDate()).padStart(2, "0")}`;
+}
 
 app.get("/optionchain", async (req, res) => {
   try {
@@ -138,10 +149,9 @@ app.get("/searchoptions", async (req, res) => {
           }
           return null;
         })
-        .filter((item) => item !== null)
-        .filter((item) => item.date.includes("2023-09-21"));
+        .filter((item) => item !== null);
 
-      const collectionRef = db.ref("septemberData");
+      const collectionRef = db.ref("strikesData");
       collectionRef
         .set(parsedData)
         .then(() => {
@@ -162,9 +172,11 @@ app.get("/searchoptions", async (req, res) => {
 const fetchAndSaveOptionChainData = async (option) => {
   try {
     const symbol = option.symbol === "NIFTY" ? "NIFTY" : "BANKNIFTY";
+    const expiryDate = getNextThursday();
+    console.log(expiryDate)
 
     const options = {
-      expiryDate: "2023-09-28",
+      expiryDate: expiryDate,
       optionType:
         option.type === "CE"
           ? sn.constants.OPTION_TYPE_CE
@@ -186,7 +198,7 @@ const fetchAndSaveOptionChainData = async (option) => {
 
 app.get("/spotdata", async (req, res) => {
   try {
-    const septemberDataRef = db.ref("septemberData");
+    const septemberDataRef = db.ref("strikesParams");
 
     try {
       const snapshot = await septemberDataRef.once("value");
@@ -316,8 +328,39 @@ app.get("/addOIdata", async (req, res) => {
 //   }
 // });
 
+
+
+function filterDataByDate(data, date) {
+  return data.filter((item) => item.date === date);
+}
+
+app.get("/filterWeekData", async (req, res) => {
+  try {
+    strikesDataRef
+      .once("value")
+      .then((snapshot) => {
+        const data = snapshot.val();
+        const nextThursday = getNextThursday();
+        const filteredData = filterDataByDate(data, nextThursday);
+
+        console.log(JSON.stringify(filteredData, null, 2));
+        strikesParamsRef.set(filteredData);
+        res.json(filteredData);
+
+      })
+      .catch((error) => {
+        console.error("Error fetching data:", error);
+      });
+
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  }
+});
+
 app.get("/", (req, res) => {
   res.send("API Working fine");
 });
 
-app.listen(process.env.PORT, () => console.log(`Oihelper app listening on port ${process.env.PORT}!`));
+app.listen(process.env.PORT, () =>
+  console.log(`Oihelper app listening on port ${process.env.PORT}!`)
+);

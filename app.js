@@ -160,8 +160,6 @@ app.get("/searchoptions", async (req, res) => {
         .catch((err) => {
           res.status(500).send("Unable to save data to firebase" + err);
         });
-
-      //res.json(parsedData);
     })
     .catch((error) => {
       console.error("Error occurred: ", error);
@@ -170,10 +168,10 @@ app.get("/searchoptions", async (req, res) => {
 });
 
 const fetchAndSaveOptionChainData = async (option) => {
+  let symbol;
   try {
-    const symbol = option.symbol === "NIFTY" ? "NIFTY" : "BANKNIFTY";
+    symbol = option.symbol === "NIFTY" ? "NIFTY" : "BANKNIFTY";
     const expiryDate = getNextThursday();
-    console.log(expiryDate)
 
     const options = {
       expiryDate: expiryDate,
@@ -186,11 +184,12 @@ const fetchAndSaveOptionChainData = async (option) => {
     };
 
     const optionChainData = await sn.snapi.optionchain(symbol, options);
-
     return JSON.parse(optionChainData);
   } catch (error) {
     console.error(
-      `Error occurred for ${symbol} ${option.date} ${option.strikePrice}:`,
+      `Error occurred for ${symbol || "Unknown Symbol"} ${option?.date} ${
+        option?.strikePrice
+      }:`,
       error
     );
   }
@@ -328,8 +327,6 @@ app.get("/addOIdata", async (req, res) => {
 //   }
 // });
 
-
-
 function filterDataByDate(data, date) {
   return data.filter((item) => item.date === date);
 }
@@ -346,12 +343,10 @@ app.get("/filterWeekData", async (req, res) => {
         console.log(JSON.stringify(filteredData, null, 2));
         strikesParamsRef.set(filteredData);
         res.json(filteredData);
-
       })
       .catch((error) => {
         console.error("Error fetching data:", error);
       });
-
   } catch (error) {
     console.error("Error fetching data:", error);
   }

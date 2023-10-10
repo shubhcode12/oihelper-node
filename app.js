@@ -254,7 +254,7 @@ app.get("/spotdata", async (req, res) => {
           // Send the response once all items are processed
           // res.send('All option data added successfully');
         }
-      }, i * 300);
+      }, i * 500);
     }
     res.send("All option data added successfully");
   } catch (error) {
@@ -280,48 +280,42 @@ app.get("/addOIdata", async (req, res) => {
 cron.schedule("*/5 * * * *", async () => {
   console.time("time");
 
-  // try {
-  //   const septemberDataRef = db.ref("strikesParams");
+  try {
+    const septemberDataRef = db.ref("strikesParams");
+    const snapshot = await septemberDataRef.once("value");
+    const septemberData = snapshot.val();
+    let sum = 0;
+    let totalItems = septemberData.length;
+    let completedItems = 0;
+    let progressBarLength = 50;
+    for (let i = 0; i < totalItems; i++) {
+      setTimeout(async function () {
+        const data = await fetchAndSaveOptionChainData(septemberData[i]);
+        //console.log("🚀 ~ file: app.js:221 ~ data:", data);
+        const temp = data.optionChainDetails[0];
+        const { bestBids, bestAsks, ...newobj } = temp;
 
-  //   try {
-  //     const snapshot = await septemberDataRef.once("value");
-  //     const septemberData = snapshot.val();
-  //     let sum = 0;
-  //     let totalItems = septemberData.length;
-  //     let completedItems = 0;
-  //     let progressBarLength = 50;
-  //     for (let i = 0; i < totalItems; i++) {
-  //       setTimeout(async function () {
-  //         const data = await fetchAndSaveOptionChainData(septemberData[i]);
-  //         //console.log("🚀 ~ file: app.js:221 ~ data:", data);
-  //         const temp = data.optionChainDetails[0];
-  //         const { bestBids, bestAsks, ...newobj } = temp;
+        arr.push(newobj);
+        sum += parseFloat(newobj.openInterest);
 
-  //         arr.push(newobj);
-  //         sum += parseFloat(newobj.openInterest);
+        completedItems++; // Increment the completed items
 
-  //         completedItems++; // Increment the completed items
+        // Update the progress bar
+        displayProgressBar(completedItems, totalItems, progressBarLength);
 
-  //         // Update the progress bar
-  //         displayProgressBar(completedItems, totalItems, progressBarLength);
-
-  //         if (completedItems === totalItems) {
-  //           const sumData = {
-  //             timestamp: Date.now(),
-  //             total: sum,
-  //           };
-  //           myEmitter.emit("myEvent", arr, sumData);
-  //         }
-  //       }, i * 300);
-  //     }
-  //     console.log("All option data added successfully");
-  //   } catch (error) {
-  //     console.error("An error occurred:", error);
-  //   }
-  // } catch (error) {
-  //   console.error("Error adding option data:", error);
-
-  // }
+        if (completedItems === totalItems) {
+          const sumData = {
+            timestamp: Date.now(),
+            total: sum,
+          };
+          myEmitter.emit("myEvent", arr, sumData);
+        }
+      }, i * 500);
+    }
+    console.log("All option data added successfully");
+  } catch (error) {
+    console.error("An error occurred:", error);
+  }
 });
 
 function filterDataByDate(data, date) {

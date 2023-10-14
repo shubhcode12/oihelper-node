@@ -38,12 +38,37 @@ const calculateOpenInterest = (data, type) =>
 const saveToDB = async (ref, total) =>
   await ref.push({ timestamp: Date.now(), total });
 
+  const calculateCeDividePe = (totalCE, totalPE) => {
+    if (totalPE === 0) return null;  
+    return totalCE / totalPE;
+  };
+  
+  const calculatePeDivideCe = (totalCE, totalPE) => {
+    if (totalCE === 0) return null;  
+    return totalPE / totalCE;
+  };
+
 myEmitter.on("myEvent", async (i, sum) => {
   // console.time('time');
 
   await optionDataRef.push(i);
-  saveToDB(db.ref("totalOiCE"), calculateOpenInterest(i, "CE"));
-  saveToDB(db.ref("totalOiPE"), calculateOpenInterest(i, "PE"));
+
+  const totalCE = calculateOpenInterest(i, "CE");
+  const totalPE = calculateOpenInterest(i, "PE");
+
+  saveToDB(db.ref("totalOiCE"), totalCE);
+  saveToDB(db.ref("totalOiPE"), totalPE);
+
+  const ceDividePeValue = calculateCeDividePe(totalCE, totalPE);
+  if (ceDividePeValue !== null) {
+    saveToDB(db.ref("ceDividePe"), ceDividePeValue);
+  }
+
+  const peDivideCeValue = calculatePeDivideCe(totalCE, totalPE);
+  if (peDivideCeValue !== null) {
+    saveToDB(db.ref("peDivideCe"), peDivideCeValue);
+  }
+
   const totalOiGraphRef = db.ref("totalOiGraph");
   totalOiGraphRef.push(sum).then(() => {
     console.log("Sum calculated and saved to the database");

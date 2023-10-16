@@ -38,15 +38,15 @@ const calculateOpenInterest = (data, type) =>
 const saveToDB = async (ref, total) =>
   await ref.push({ timestamp: Date.now(), total });
 
-  const calculateCeDividePe = (totalCE, totalPE) => {
-    if (totalPE === 0) return null;  
-    return totalCE / totalPE;
-  };
-  
-  const calculatePeDivideCe = (totalCE, totalPE) => {
-    if (totalCE === 0) return null;  
-    return totalPE / totalCE;
-  };
+const calculateCeDividePe = (totalCE, totalPE) => {
+  if (totalPE === 0) return null;
+  return totalCE / totalPE;
+};
+
+const calculatePeDivideCe = (totalCE, totalPE) => {
+  if (totalCE === 0) return null;
+  return totalPE / totalCE;
+};
 
 myEmitter.on("myEvent", async (i, sum) => {
   // console.time('time');

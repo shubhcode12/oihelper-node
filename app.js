@@ -35,6 +35,11 @@ const calculateOpenInterest = (data, type) =>
     0
   );
 
+const calculateOiTrend = (totalCE , totalPE) => {
+  if (totalPE === 0) return null;
+  return totalCE - totalPE / 1000;
+}  
+
 const saveToDB = async (ref, total) =>
   await ref.push({ timestamp: Date.now(), total });
 
@@ -67,6 +72,11 @@ myEmitter.on("myEvent", async (i, sum) => {
   const peDivideCeValue = calculatePeDivideCe(totalCE, totalPE);
   if (peDivideCeValue !== null) {
     saveToDB(db.ref("peDivideCe"), peDivideCeValue);
+  }
+
+  const oiTrendValue = calculateOiTrend(totalCE, totalPE);
+  if (oiTrendValue !== null) {
+    saveToDB(db.ref("oiTrend"), oiTrendValue);
   }
 
   const totalOiGraphRef = db.ref("totalOiGraph");
@@ -265,7 +275,7 @@ app.get("/spotdata", async (req, res) => {
     const snapshot = await septemberDataRef.once("value");
     const septemberData = snapshot.val();
     let sum = 0;
-    let totalItems = septemberData.length;
+    let totalItems = 5;
     let completedItems = 0;
     let progressBarLength = 50;
     for (let i = 0; i < totalItems; i++) {
@@ -316,46 +326,46 @@ app.get("/addOIdata", async (req, res) => {
   });
 });
 
-cron.schedule("*/5 * * * *", async () => {
-  console.time("time");
+// cron.schedule("*/5 * * * *", async () => {
+//   console.time("time");
 
-  try {
-    const septemberDataRef = db.ref("strikesParams");
-    const snapshot = await septemberDataRef.once("value");
-    const septemberData = snapshot.val();
-    let sum = 0;
-    let totalItems = septemberData.length;
-    let completedItems = 0;
-    let progressBarLength = 50;
-    for (let i = 0; i < totalItems; i++) {
-      setTimeout(async function () {
-        const data = await fetchAndSaveOptionChainData(septemberData[i]);
-        //console.log("🚀 ~ file: app.js:221 ~ data:", data);
-        const temp = data.optionChainDetails[0];
-        const { bestBids, bestAsks, ...newobj } = temp;
+//   try {
+//     const septemberDataRef = db.ref("strikesParams");
+//     const snapshot = await septemberDataRef.once("value");
+//     const septemberData = snapshot.val();
+//     let sum = 0;
+//     let totalItems = septemberData.length;
+//     let completedItems = 0;
+//     let progressBarLength = 50;
+//     for (let i = 0; i < totalItems; i++) {
+//       setTimeout(async function () {
+//         const data = await fetchAndSaveOptionChainData(septemberData[i]);
+//         //console.log("🚀 ~ file: app.js:221 ~ data:", data);
+//         const temp = data.optionChainDetails[0];
+//         const { bestBids, bestAsks, ...newobj } = temp;
 
-        arr.push(newobj);
-        sum += parseFloat(newobj.openInterest);
+//         arr.push(newobj);
+//         sum += parseFloat(newobj.openInterest);
 
-        completedItems++; // Increment the completed items
+//         completedItems++; // Increment the completed items
 
-        // Update the progress bar
-        displayProgressBar(completedItems, totalItems, progressBarLength);
+//         // Update the progress bar
+//         displayProgressBar(completedItems, totalItems, progressBarLength);
 
-        if (completedItems === totalItems) {
-          const sumData = {
-            timestamp: Date.now(),
-            total: sum,
-          };
-          myEmitter.emit("myEvent", arr, sumData);
-        }
-      }, i * 500);
-    }
-    console.log("All option data added successfully");
-  } catch (error) {
-    console.error("An error occurred:", error);
-  }
-});
+//         if (completedItems === totalItems) {
+//           const sumData = {
+//             timestamp: Date.now(),
+//             total: sum,
+//           };
+//           myEmitter.emit("myEvent", arr, sumData);
+//         }
+//       }, i * 500);
+//     }
+//     console.log("All option data added successfully");
+//   } catch (error) {
+//     console.error("An error occurred:", error);
+//   }
+// });
 
 function filterDataByDate(data, date) {
   return data.filter((item) => item.date === date);

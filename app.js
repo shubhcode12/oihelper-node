@@ -38,7 +38,7 @@ const calculateOpenInterest = (data, type) =>
 
 const calculateOiTrend = (totalCE, totalPE) => {
   if (totalPE === 0) return null;
-  return totalCE - totalPE / 1000;
+  return (totalPE  - totalCE) / 1000;
 };
 
 const saveToDB = async (ref, total) =>

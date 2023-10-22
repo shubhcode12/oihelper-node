@@ -23,6 +23,7 @@ const optionDataRef = db.ref("optionData");
 const strikesDataRef = db.ref("strikesData");
 const strikesParamsRef = db.ref("strikesParams");
 const EventEmitter = require("events");
+const { timeEnd, timeStamp } = require("console");
 const myEmitter = new EventEmitter();
 const arr = [];
 
@@ -35,10 +36,10 @@ const calculateOpenInterest = (data, type) =>
     0
   );
 
-const calculateOiTrend = (totalCE , totalPE) => {
+const calculateOiTrend = (totalCE, totalPE) => {
   if (totalPE === 0) return null;
   return totalCE - totalPE / 1000;
-}  
+};
 
 const saveToDB = async (ref, total) =>
   await ref.push({ timestamp: Date.now(), total });
@@ -53,8 +54,35 @@ const calculatePeDivideCe = (totalCE, totalPE) => {
   return totalPE / totalCE;
 };
 
+const fetchIndexQuotes = async (symbol) => {
+  try {
+    const indexQuoteData = await sn.snapi.getIndexQuotes(symbol);
+    const parsedData = JSON.parse(indexQuoteData);
+    return parsedData.spotPrice;
+  } catch (error) {
+    console.error(`Error fetching index quotes for ${symbol}:`, error);
+    return null;
+  }
+};
+
 myEmitter.on("myEvent", async (i, sum) => {
   // console.time('time');
+
+  const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
+  const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
+
+  if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
+    const timestamp = Date.now();
+    const indexQuoteData = {
+      NIFTY: niftySpotPrice,
+      INDIA_VIX: indiaVixSpotPrice,
+      timestamp : timestamp
+    };
+    const vixGraphRef = db.ref("vixGraph");
+    vixGraphRef.push(indexQuoteData);
+  } else {
+    console.log("indexquote data not found");
+  }
 
   await optionDataRef.push(i);
 

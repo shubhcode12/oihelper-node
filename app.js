@@ -1,4 +1,5 @@
 require("dotenv").config();
+const moment = require('moment');
 const express = require("express");
 const admin = require("firebase-admin");
 var sn = require("stocknotejsbridge");
@@ -355,6 +356,11 @@ app.get("/addOIdata", async (req, res) => {
 });
 
 cron.schedule("*/5 * * * *", async () => {
+  const now = moment();
+  const dayOfWeek = now.day(); // 0 (Sunday) to 6 (Saturday)
+  const currentTime = now.format("HH:mm");
+  if ((dayOfWeek >= 1 && dayOfWeek <= 4) && (currentTime >= "09:15" && currentTime <= "15:30")) {
+
   console.time("time");
 
   try {
@@ -393,6 +399,9 @@ cron.schedule("*/5 * * * *", async () => {
   } catch (error) {
     console.error("An error occurred:", error);
   }
+} else {
+  console.log("Not the right time to run the job. Skipping...");
+}
 });
 
 function filterDataByDate(data, date) {

@@ -1,5 +1,5 @@
 require("dotenv").config();
-const moment = require('moment');
+const moment = require("moment");
 const express = require("express");
 const admin = require("firebase-admin");
 var sn = require("stocknotejsbridge");
@@ -28,6 +28,7 @@ const { timeEnd, timeStamp } = require("console");
 const myEmitter = new EventEmitter();
 const arr = [];
 
+// Total OI Graph
 const calculateOpenInterest = (data, type) =>
   data.reduce(
     (acc, obj) =>
@@ -37,24 +38,28 @@ const calculateOpenInterest = (data, type) =>
     0
   );
 
+// OI Trend Graph
 const calculateOiTrend = (totalCE, totalPE) => {
   if (totalPE === 0) return null;
-  return (totalPE  - totalCE) / 1000;
+  return (totalPE - totalCE) / 1000;
 };
 
 const saveToDB = async (ref, total) =>
   await ref.push({ timestamp: Date.now(), total });
 
+// CPR Graph
 const calculateCeDividePe = (totalCE, totalPE) => {
   if (totalPE === 0) return null;
   return totalCE / totalPE;
 };
 
+// PCR Graph
 const calculatePeDivideCe = (totalCE, totalPE) => {
   if (totalCE === 0) return null;
   return totalPE / totalCE;
 };
 
+// Spot Price Graph & VIX Graph
 const fetchIndexQuotes = async (symbol) => {
   try {
     const indexQuoteData = await sn.snapi.getIndexQuotes(symbol);
@@ -66,7 +71,7 @@ const fetchIndexQuotes = async (symbol) => {
   }
 };
 
-myEmitter.on("myEvent", async (i, sum) => {
+myEmitter.on("myEvent", async (i, sum, volumeData) => {
   // console.time('time');
 
   const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
@@ -77,7 +82,7 @@ myEmitter.on("myEvent", async (i, sum) => {
     const indexQuoteData = {
       NIFTY: niftySpotPrice,
       INDIA_VIX: indiaVixSpotPrice,
-      timestamp : timestamp
+      timestamp: timestamp,
     };
     const vixGraphRef = db.ref("vixGraph");
     vixGraphRef.push(indexQuoteData);
@@ -93,21 +98,29 @@ myEmitter.on("myEvent", async (i, sum) => {
   saveToDB(db.ref("totalOiCE"), totalCE);
   saveToDB(db.ref("totalOiPE"), totalPE);
 
+  // Save CPR Graph
   const ceDividePeValue = calculateCeDividePe(totalCE, totalPE);
   if (ceDividePeValue !== null) {
     saveToDB(db.ref("ceDividePe"), ceDividePeValue);
   }
 
+  // Save PCR Graph
   const peDivideCeValue = calculatePeDivideCe(totalCE, totalPE);
   if (peDivideCeValue !== null) {
     saveToDB(db.ref("peDivideCe"), peDivideCeValue);
   }
 
+  // Save OI Trend Graph
   const oiTrendValue = calculateOiTrend(totalCE, totalPE);
   if (oiTrendValue !== null) {
     saveToDB(db.ref("oiTrend"), oiTrendValue);
   }
 
+  // Save Total Volume Graph
+  const totalVolumeGraphRef = db.ref("volumeGraph");
+  totalVolumeGraphRef.push(volumeData);
+
+  // Save Total Oi Graph
   const totalOiGraphRef = db.ref("totalOiGraph");
   totalOiGraphRef.push(sum).then(() => {
     console.log("Sum calculated and saved to the database");
@@ -304,6 +317,7 @@ app.get("/spotdata", async (req, res) => {
     const snapshot = await septemberDataRef.once("value");
     const septemberData = snapshot.val();
     let sum = 0;
+    let volumeSum = 0;
     let totalItems = septemberData.length;
     let completedItems = 0;
     let progressBarLength = 50;
@@ -316,6 +330,7 @@ app.get("/spotdata", async (req, res) => {
 
         arr.push(newobj);
         sum += parseFloat(newobj.openInterest);
+        volumeSum += parseFloat(newobj.volume);
 
         completedItems++; // Increment the completed items
 
@@ -327,7 +342,13 @@ app.get("/spotdata", async (req, res) => {
             timestamp: Date.now(),
             total: sum,
           };
-          myEmitter.emit("myEvent", arr, sumData);
+
+          const volumeData = {
+            timestamp: Date.now(),
+            total: volumeSum,
+          };
+
+          myEmitter.emit("myEvent", arr, sumData, volumeData);
 
           // Send the response once all items are processed
           // res.send('All option data added successfully');
@@ -360,49 +381,60 @@ cron.schedule("*/5 * * * *", async () => {
   const now = moment();
   const dayOfWeek = now.day(); // 0 (Sunday) to 6 (Saturday)
   const currentTime = now.format("HH:mm");
-  if ((dayOfWeek >= 1 && dayOfWeek <= 4) && (currentTime >= "09:15" && currentTime <= "15:30")) {
+  if (
+    dayOfWeek >= 1 &&
+    dayOfWeek <= 4 &&
+    currentTime >= "09:15" &&
+    currentTime <= "15:30"
+  ) {
+    console.time("time");
 
-  console.time("time");
+    try {
+      const septemberDataRef = db.ref("strikesParams");
+      const snapshot = await septemberDataRef.once("value");
+      const septemberData = snapshot.val();
+      let sum = 0;
+      let volumeSum = 0;
+      let totalItems = septemberData.length;
+      let completedItems = 0;
+      let progressBarLength = 50;
+      for (let i = 0; i < totalItems; i++) {
+        setTimeout(async function () {
+          const data = await fetchAndSaveOptionChainData(septemberData[i]);
+          //console.log("🚀 ~ file: app.js:221 ~ data:", data);
+          const temp = data.optionChainDetails[0];
+          const { bestBids, bestAsks, ...newobj } = temp;
 
-  try {
-    const septemberDataRef = db.ref("strikesParams");
-    const snapshot = await septemberDataRef.once("value");
-    const septemberData = snapshot.val();
-    let sum = 0;
-    let totalItems = septemberData.length;
-    let completedItems = 0;
-    let progressBarLength = 50;
-    for (let i = 0; i < totalItems; i++) {
-      setTimeout(async function () {
-        const data = await fetchAndSaveOptionChainData(septemberData[i]);
-        //console.log("🚀 ~ file: app.js:221 ~ data:", data);
-        const temp = data.optionChainDetails[0];
-        const { bestBids, bestAsks, ...newobj } = temp;
+          arr.push(newobj);
+          sum += parseFloat(newobj.openInterest);
+          volumeSum += parseFloat(newobj.volume);
 
-        arr.push(newobj);
-        sum += parseFloat(newobj.openInterest);
+          completedItems++; // Increment the completed items
 
-        completedItems++; // Increment the completed items
+          // Update the progress bar
+          displayProgressBar(completedItems, totalItems, progressBarLength);
 
-        // Update the progress bar
-        displayProgressBar(completedItems, totalItems, progressBarLength);
+          if (completedItems === totalItems) {
+            const sumData = {
+              timestamp: Date.now(),
+              total: sum,
+            };
 
-        if (completedItems === totalItems) {
-          const sumData = {
-            timestamp: Date.now(),
-            total: sum,
-          };
-          myEmitter.emit("myEvent", arr, sumData);
-        }
-      }, i * 500);
+            const volumeData = {
+              timestamp: Date.now(),
+              total: volumeSum,
+            };
+            myEmitter.emit("myEvent", arr, sumData, volumeData);
+          }
+        }, i * 500);
+      }
+      console.log("All option data added successfully");
+    } catch (error) {
+      console.error("An error occurred:", error);
     }
-    console.log("All option data added successfully");
-  } catch (error) {
-    console.error("An error occurred:", error);
+  } else {
+    console.log("Not the right time to run the job. Skipping...");
   }
-} else {
-  console.log("Not the right time to run the job. Skipping...");
-}
 });
 
 function filterDataByDate(data, date) {

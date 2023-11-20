@@ -28,6 +28,10 @@ const { timeEnd, timeStamp } = require("console");
 const myEmitter = new EventEmitter();
 const arr = [];
 
+const now = moment();
+const dayOfWeek = now.day(); // 0 (Sunday) to 6 (Saturday)
+const currentTime = now.format("HH:mm");
+
 // Total OI Graph
 const calculateOpenInterest = (data, type) =>
   data.reduce(
@@ -41,7 +45,7 @@ const calculateOpenInterest = (data, type) =>
 // OI Trend Graph
 const calculateOiTrend = (totalCE, totalPE) => {
   if (totalPE === 0) return null;
-  return (totalPE - totalCE) / 1000;
+  return (totalPE - totalCE) / 10000;
 };
 
 const saveToDB = async (ref, total) =>
@@ -74,21 +78,21 @@ const fetchIndexQuotes = async (symbol) => {
 myEmitter.on("myEvent", async (i, sum, volumeData) => {
   // console.time('time');
 
-  const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
-  const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
+  // const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
+  // const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
 
-  if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
-    const timestamp = Date.now();
-    const indexQuoteData = {
-      NIFTY: niftySpotPrice,
-      INDIA_VIX: indiaVixSpotPrice,
-      timestamp: timestamp,
-    };
-    const vixGraphRef = db.ref("vixGraph");
-    vixGraphRef.push(indexQuoteData);
-  } else {
-    console.log("indexquote data not found");
-  }
+  // if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
+  //   const timestamp = Date.now();
+  //   const indexQuoteData = {
+  //     NIFTY: niftySpotPrice,
+  //     INDIA_VIX: indiaVixSpotPrice,
+  //     timestamp: timestamp,
+  //   };
+  //   const vixGraphRef = db.ref("vixGraph");
+  //   vixGraphRef.push(indexQuoteData);
+  // } else {
+  //   console.log("indexquote data not found");
+  // }
 
   await optionDataRef.push(i);
 
@@ -203,10 +207,13 @@ app.get("/optionchain", async (req, res) => {
 
 app.get("/indexquote", async (req, res) => {
   try {
-    const index = req.body.index;
-
-    const indexQuoteData = await sn.snapi.getIndexQuotes(index);
-    res.send(indexQuoteData);
+    const getNiftyIndexQuote = await fetchIndexQuotes("INDIA VIX");
+    const getVixIndexQuote = await fetchIndexQuotes("NIFTY 50");
+    
+    res.json({
+      NIFTY : JSON.parse(getVixIndexQuote),
+      INDIA_VIX : JSON.parse(getNiftyIndexQuote),
+    });
   } catch (error) {
     console.error("Error fetching Index Quote:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -318,7 +325,7 @@ app.get("/spotdata", async (req, res) => {
     const septemberData = snapshot.val();
     let sum = 0;
     let volumeSum = 0;
-    let totalItems = septemberData.length;
+    let totalItems = 5; //septemberData.length;
     let completedItems = 0;
     let progressBarLength = 50;
     for (let i = 0; i < totalItems; i++) {
@@ -378,71 +385,88 @@ app.get("/addOIdata", async (req, res) => {
 
 function scheduleTask() {
   // Get the current date and time
-  const now = moment();
-  const dayOfWeek = now.day(); // 0 (Sunday) to 6 (Saturday)
-  const currentTime = now.format("HH:mm");
+    console.time("time");
 
-  if (
-      dayOfWeek >= 1 &&
-      dayOfWeek <= 4 &&
-      currentTime >= "09:15" &&
-      currentTime <= "15:30"
-  ) {
-      console.time("time");
+    try {
+      const septemberDataRef = db.ref("strikesParams");
+      septemberDataRef.once("value").then((snapshot) => {
+        const septemberData = snapshot.val();
+        let sum = 0;
+        let volumeSum = 0;
+        let totalItems = 5;//septemberData.length;
+        let completedItems = 0;
+        let progressBarLength = 50;
+        for (let i = 0; i < totalItems; i++) {
+          setTimeout(async function () {
+            const data = await fetchAndSaveOptionChainData(septemberData[i]);
+            const temp = data.optionChainDetails[0];
+            const { bestBids, bestAsks, ...newobj } = temp;
 
-      try {
-          const septemberDataRef = db.ref("strikesParams");
-          septemberDataRef.once("value").then(snapshot => {
-              const septemberData = snapshot.val();
-              let sum = 0;
-              let volumeSum = 0;
-              let totalItems = septemberData.length;
-              let completedItems = 0;
-              let progressBarLength = 50;
-              for (let i = 0; i < totalItems; i++) {
-                  setTimeout(async function () {
-                      const data = await fetchAndSaveOptionChainData(septemberData[i]);
-                      const temp = data.optionChainDetails[0];
-                      const { bestBids, bestAsks, ...newobj } = temp;
+            arr.push(newobj);
+            sum += parseFloat(newobj.openInterest);
+            volumeSum += parseFloat(newobj.volume);
 
-                      arr.push(newobj);
-                      sum += parseFloat(newobj.openInterest);
-                      volumeSum += parseFloat(newobj.volume);
+            completedItems++;
 
-                      completedItems++;
+            displayProgressBar(completedItems, totalItems, progressBarLength);
 
-                      displayProgressBar(completedItems, totalItems, progressBarLength);
+            if (completedItems === totalItems) {
+              const sumData = {
+                timestamp: Date.now(),
+                total: sum,
+              };
 
-                      if (completedItems === totalItems) {
-                          const sumData = {
-                              timestamp: Date.now(),
-                              total: sum,
-                          };
-
-                          const volumeData = {
-                              timestamp: Date.now(),
-                              total: volumeSum,
-                          };
-                          myEmitter.emit("myEvent", arr, sumData, volumeData);
-                      }
-                  }, i * 500);
-              }
-              console.log("All option data added successfully");
-          });
-      } catch (error) {
-          console.error("An error occurred:", error);
-      }
-  } else {
-      console.log("Not the right time to run the job. Skipping...");
-  }
+              const volumeData = {
+                timestamp: Date.now(),
+                total: volumeSum,
+              };
+              myEmitter.emit("myEvent", arr, sumData, volumeData);
+            }
+          }, i * 500);
+        }
+        console.log("All option data added successfully");
+      });
+    } catch (error) {
+      console.error("An error occurred:", error);
+    }
+  
 
   // Schedule the next run. This will check again in 5 minutes.
   setTimeout(scheduleTask, 5 * 60 * 1000);
 }
 
+
+if (
+  dayOfWeek >= 1 &&
+  dayOfWeek <= 4 &&
+  currentTime >= "09:15" &&
+  currentTime <= "15:30"
+) {
 // Initial call to start the scheduler
 scheduleTask();
 
+} else {
+  console.log("Not the right time to run the job. Skipping...");
+}
+
+ cron.schedule("*/5 * * * *", async () => { 
+  console.log("hello")
+  const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
+  const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
+
+  if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
+    const timestamp = Date.now();
+    const indexQuoteData = {
+      NIFTY: niftySpotPrice,
+      INDIA_VIX: indiaVixSpotPrice,
+      timestamp: timestamp,
+    };
+    const vixGraphRef = db.ref("vixGraph");
+    vixGraphRef.push(indexQuoteData);
+  } else {
+    console.log("indexquote data not found");
+  }
+ })
 
 // added moment
 // cron.schedule("*/5 * * * *", async () => {

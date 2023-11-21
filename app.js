@@ -45,7 +45,7 @@ const calculateOpenInterest = (data, type) =>
 // OI Trend Graph
 const calculateOiTrend = (totalCE, totalPE) => {
   if (totalPE === 0) return null;
-  return (totalPE - totalCE) / 10000;
+  return (totalPE - totalCE) / 1000000;
 };
 
 const saveToDB = async (ref, total) =>
@@ -449,24 +449,24 @@ scheduleTask();
   console.log("Not the right time to run the job. Skipping...");
 }
 
- cron.schedule("*/5 * * * *", async () => { 
-  console.log("hello")
-  const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
-  const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
+//  cron.schedule("*/5 * * * *", async () => { 
+//   console.log("hello")
+//   const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
+//   const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
 
-  if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
-    const timestamp = Date.now();
-    const indexQuoteData = {
-      NIFTY: niftySpotPrice,
-      INDIA_VIX: indiaVixSpotPrice,
-      timestamp: timestamp,
-    };
-    const vixGraphRef = db.ref("vixGraph");
-    vixGraphRef.push(indexQuoteData);
-  } else {
-    console.log("indexquote data not found");
-  }
- })
+//   if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
+//     const timestamp = Date.now();
+//     const indexQuoteData = {
+//       NIFTY: niftySpotPrice,
+//       INDIA_VIX: indiaVixSpotPrice,
+//       timestamp: timestamp,
+//     };
+//     const vixGraphRef = db.ref("vixGraph");
+//     vixGraphRef.push(indexQuoteData);
+//   } else {
+//     console.log("indexquote data not found");
+//   }
+//  })
 
 // added moment
 // cron.schedule("*/5 * * * *", async () => {

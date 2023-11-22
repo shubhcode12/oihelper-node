@@ -78,21 +78,21 @@ const fetchIndexQuotes = async (symbol) => {
 myEmitter.on("myEvent", async (i, sum, volumeData) => {
   // console.time('time');
 
-  // const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
-  // const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
+  const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
+  //const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
+  //INDIA_VIX: indiaVixSpotPrice,
 
-  // if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
-  //   const timestamp = Date.now();
-  //   const indexQuoteData = {
-  //     NIFTY: niftySpotPrice,
-  //     INDIA_VIX: indiaVixSpotPrice,
-  //     timestamp: timestamp,
-  //   };
-  //   const vixGraphRef = db.ref("vixGraph");
-  //   vixGraphRef.push(indexQuoteData);
-  // } else {
-  //   console.log("indexquote data not found");
-  // }
+  if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
+    const timestamp = Date.now();
+    const indexQuoteData = {
+      NIFTY: niftySpotPrice,
+      timestamp: timestamp,
+    };
+    const vixGraphRef = db.ref("vixGraph");
+    vixGraphRef.push(indexQuoteData);
+  } else {
+    console.log("indexquote data not found");
+  }
 
   await optionDataRef.push(i);
 
@@ -402,7 +402,12 @@ function scheduleTask() {
             const temp = data.optionChainDetails[0];
             const { bestBids, bestAsks, ...newobj } = temp;
 
-            arr.push(newobj);
+            const timestampedObj = {
+              timestamp: Date.now(),
+              ...newobj
+            };
+  
+            arr.push(timestampedObj);
             sum += parseFloat(newobj.openInterest);
             volumeSum += parseFloat(newobj.volume);
 
@@ -440,7 +445,7 @@ if (
   dayOfWeek >= 1 &&
   dayOfWeek <= 4 &&
   currentTime >= "09:15" &&
-  currentTime <= "15:30"
+  currentTime <= "18:30"
 ) {
 // Initial call to start the scheduler
 scheduleTask();

@@ -23,6 +23,7 @@ app.use(express.urlencoded({ extended: true }));
 const optionDataRef = db.ref("optionData");
 const strikesDataRef = db.ref("strikesData");
 const strikesParamsRef = db.ref("strikesParams");
+const spotPriceGraphRef = db.ref("spotPriceGraph")
 const EventEmitter = require("events");
 const { timeEnd, timeStamp } = require("console");
 const myEmitter = new EventEmitter();
@@ -78,21 +79,21 @@ const fetchIndexQuotes = async (symbol) => {
 myEmitter.on("myEvent", async (i, sum, volumeData) => {
   // console.time('time');
 
-  const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
-  //const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
-  //INDIA_VIX: indiaVixSpotPrice,
+  // const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
+  // const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
 
-  if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
-    const timestamp = Date.now();
-    const indexQuoteData = {
-      NIFTY: niftySpotPrice,
-      timestamp: timestamp,
-    };
-    const vixGraphRef = db.ref("vixGraph");
-    vixGraphRef.push(indexQuoteData);
-  } else {
-    console.log("indexquote data not found");
-  }
+  // if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
+  //   const timestamp = Date.now();
+  //   const indexQuoteData = {
+  //     NIFTY: niftySpotPrice,
+  //     INDIA_VIX: indiaVixSpotPrice,
+  //     timestamp: timestamp,
+  //   };
+  //   const vixGraphRef = db.ref("vixGraph");
+  //   vixGraphRef.push(indexQuoteData);
+  // } else {
+  //   console.log("indexquote data not found");
+  // }
 
   await optionDataRef.push(i);
 
@@ -209,10 +210,10 @@ app.get("/indexquote", async (req, res) => {
   try {
     const getNiftyIndexQuote = await fetchIndexQuotes("INDIA VIX");
     const getVixIndexQuote = await fetchIndexQuotes("NIFTY 50");
-    
+
     res.json({
-      NIFTY : JSON.parse(getVixIndexQuote),
-      INDIA_VIX : JSON.parse(getNiftyIndexQuote),
+      NIFTY: JSON.parse(getVixIndexQuote),
+      INDIA_VIX: JSON.parse(getNiftyIndexQuote),
     });
   } catch (error) {
     console.error("Error fetching Index Quote:", error);
@@ -385,8 +386,14 @@ app.get("/addOIdata", async (req, res) => {
 
 function scheduleTask() {
   // Get the current date and time
-    console.time("time");
+  console.time("time");
 
+  if (
+    dayOfWeek >= 1 &&
+    dayOfWeek <= 4 &&
+    currentTime >= "09:15" &&
+    currentTime <= "15:30"
+  ) {
     try {
       const septemberDataRef = db.ref("strikesParams");
       septemberDataRef.once("value").then((snapshot) => {
@@ -402,12 +409,15 @@ function scheduleTask() {
             const temp = data.optionChainDetails[0];
             const { bestBids, bestAsks, ...newobj } = temp;
 
-            const timestampedObj = {
-              timestamp: Date.now(),
-              ...newobj
-            };
-  
-            arr.push(timestampedObj);
+            if (i === 0) {
+              const spotPriceData = {
+                timestamp: Date.now(),
+                spotPrice: newobj.spotPrice,
+              };
+              spotPriceGraphRef.push(spotPriceData);
+            }
+
+            arr.push(newobj);
             sum += parseFloat(newobj.openInterest);
             volumeSum += parseFloat(newobj.volume);
 
@@ -434,27 +444,15 @@ function scheduleTask() {
     } catch (error) {
       console.error("An error occurred:", error);
     }
-  
+  } else {
+    console.log("Not the right time to run the job. Skipping...");
+  }
 
-  // Schedule the next run. This will check again in 5 minutes.
   setTimeout(scheduleTask, 5 * 60 * 1000);
 }
 
-
-if (
-  dayOfWeek >= 1 &&
-  dayOfWeek <= 4 &&
-  currentTime >= "09:15" &&
-  currentTime <= "18:30"
-) {
-// Initial call to start the scheduler
 scheduleTask();
 
-} else {
-  console.log("Not the right time to run the job. Skipping...");
-}
-
-//  cron.schedule("*/5 * * * *", async () => { 
 //   console.log("hello")
 //   const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
 //   const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");

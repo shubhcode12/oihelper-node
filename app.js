@@ -119,8 +119,6 @@ myEmitter.on("myEvent", async (i, sum, volumeData) => {
   const oiTrendValue = calculateOiTrend(totalCE, totalPE);
   if (oiTrendValue !== null) {
     saveToDB(db.ref("oiTrend"), oiTrendValue);
-  }else{
-    console.log("oiTrend value is null")
   }
 
   // Save Total Volume Graph
@@ -454,7 +452,6 @@ function scheduleTask() {
 }
 
 scheduleTask();
-
 
 function filterDataByDate(data, date) {
   return data.filter((item) => item.date === date);

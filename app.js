@@ -402,7 +402,7 @@ function scheduleTask() {
         const septemberData = snapshot.val();
         let sum = 0;
         let volumeSum = 0;
-        let totalItems = 5;//septemberData.length;
+        let totalItems = septemberData.length;
         let completedItems = 0;
         let progressBarLength = 50;
         for (let i = 0; i < totalItems; i++) {

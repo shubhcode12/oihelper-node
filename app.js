@@ -45,7 +45,6 @@ const calculateOpenInterest = (data, type) =>
 
 // OI Trend Graph
 const calculateOiTrend = (totalCE, totalPE) => {
-  if (totalPE === 0) return null;
   return (totalPE - totalCE) / 1000000;
 };
 

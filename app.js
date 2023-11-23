@@ -23,7 +23,7 @@ app.use(express.urlencoded({ extended: true }));
 const optionDataRef = db.ref("optionData");
 const strikesDataRef = db.ref("strikesData");
 const strikesParamsRef = db.ref("strikesParams");
-const spotPriceGraphRef = db.ref("spotPriceGraph")
+const spotPriceGraphRef = db.ref("spotPriceGraph");
 const EventEmitter = require("events");
 const { timeEnd, timeStamp } = require("console");
 const myEmitter = new EventEmitter();
@@ -32,7 +32,6 @@ const arr = [];
 const now = moment();
 const dayOfWeek = now.day(); // 0 (Sunday) to 6 (Saturday)
 const currentTime = now.format("HH:mm");
-const currentTimestamp = Date.now();
 
 // Total OI Graph
 const calculateOpenInterest = (data, type) =>
@@ -49,8 +48,10 @@ const calculateOiTrend = (totalCE, totalPE) => {
   return (totalPE - totalCE) / 1000000;
 };
 
-const saveToDB = async (ref, total) =>
+const saveToDB = async (ref, total) => {
+  const currentTimestamp = Date.now();
   await ref.push({ timestamp: currentTimestamp, total });
+};
 
 // CPR Graph
 const calculateCeDividePe = (totalCE, totalPE) => {
@@ -324,9 +325,10 @@ app.get("/spotdata", async (req, res) => {
     const septemberDataRef = db.ref("strikesParams");
     const snapshot = await septemberDataRef.once("value");
     const septemberData = snapshot.val();
+    const currentTimestamp = Date.now();
     let sum = 0;
     let volumeSum = 0;
-    let totalItems = 5; //septemberData.length;
+    let totalItems = septemberData.length;
     let completedItems = 0;
     let progressBarLength = 50;
     for (let i = 0; i < totalItems; i++) {
@@ -396,6 +398,7 @@ function scheduleTask() {
   ) {
     try {
       const septemberDataRef = db.ref("strikesParams");
+      const currentTimestamp = Date.now();
       septemberDataRef.once("value").then((snapshot) => {
         const septemberData = snapshot.val();
         let sum = 0;

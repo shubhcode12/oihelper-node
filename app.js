@@ -73,10 +73,14 @@ const calculateOiTrend = (totalCE, totalPE) => {
 
 const saveToDB = async (symbol, ref, total) => {
   const currentTimestamp = Date.now();
-  if (symbol !== null){
-    await db.ref(symbol).child(ref).push({ timestamp: currentTimestamp, total }).then(()=>{
-    console.log(`Data saved for symbol ${symbol}  || for reference ${ref}`)
-  });
+  if (symbol !== null) {
+    await db
+      .ref(symbol)
+      .child(ref)
+      .push({ timestamp: currentTimestamp, total })
+      .then(() => {
+        console.log(`Data saved for symbol ${symbol}  || for reference ${ref}`);
+      });
   }
 };
 
@@ -254,10 +258,10 @@ function scheduleTask() {
   };
 
   // Process NIFTY from Monday to Thursday
-  processSymbol("NIFTY", [1, 2, 3, 4]);
+  processSymbol("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
 
   // Process BANKNIFTY on Monday to Wednesday
-  processSymbol("BANKNIFTY", [1, 2, 3]);
+  processSymbol("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);
 
   setTimeout(scheduleTask, 5 * 60 * 1000);
 }
@@ -270,8 +274,7 @@ function displayProgressBar(current, total, progressBarLength) {
     progressBarLength - progress
   )}]`;
   process.stdout.write(`\r${current}/${total} ${progressBar}`);
-} 
-
+}
 
 app.get("/optionchain", async (req, res) => {
   try {
@@ -382,7 +385,6 @@ app.get("/searchoptions", async (req, res) => {
     });
 });
 
-
 function filterDataByDateAndSymbol(data, date, symbol) {
   return data.filter((item) => item.date === date && item.symbol === symbol);
 }
@@ -392,18 +394,18 @@ app.get("/filterData", async (req, res) => {
     const currentDate = new Date();
     const datesBankNifty = ["2023-12-06", "2023-12-13", "2023-12-20"];
     const datesNifty = ["2023-12-07", "2023-12-14"];
-    const symbol = "BANKNIFTY"; 
+    const symbol = "BANKNIFTY";
     let targetDate;
     if (symbol === "BANKNIFTY") {
       // Find the next date for BANKNIFTY after the current date
-      targetDate = datesBankNifty.find(date => new Date(date) > currentDate);
+      targetDate = datesBankNifty.find((date) => new Date(date) > currentDate);
     } else if (symbol === "NIFTY") {
       // Find the next date for NIFTY after the current date
-      targetDate = datesNifty.find(date => new Date(date) > currentDate);
+      targetDate = datesNifty.find((date) => new Date(date) > currentDate);
     }
 
     if (!targetDate) {
-      return res.status(404).send('No future date found for the given symbol');
+      return res.status(404).send("No future date found for the given symbol");
     }
 
     strikesDataRef
@@ -411,18 +413,22 @@ app.get("/filterData", async (req, res) => {
       .then((snapshot) => {
         const data = snapshot.val();
 
-        const filteredData = filterDataByDateAndSymbol(data, targetDate, symbol);
+        const filteredData = filterDataByDateAndSymbol(
+          data,
+          targetDate,
+          symbol
+        );
 
         db.ref(symbol).child("strikesParams").set(filteredData);
         res.json(filteredData);
       })
       .catch((error) => {
         console.error("Error fetching data:", error);
-        res.status(500).send('Error fetching data');
+        res.status(500).send("Error fetching data");
       });
   } catch (error) {
     console.error("Error processing request:", error);
-    res.status(500).send('Error processing request');
+    res.status(500).send("Error processing request");
   }
 });
 

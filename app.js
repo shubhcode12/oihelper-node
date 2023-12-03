@@ -33,125 +33,6 @@ const now = moment();
 const dayOfWeek = now.day(); // 0 (Sunday) to 6 (Saturday)
 const currentTime = now.format("HH:mm");
 
-// Total OI Graph
-const calculateOpenInterest = (data, type) =>
-  data.reduce(
-    (acc, obj) =>
-      (type ? obj.optionType === type : true)
-        ? acc + parseFloat(obj.openInterest || 0)
-        : acc,
-    0
-  );
-
-// OI Trend Graph
-const calculateOiTrend = (totalCE, totalPE) => {
-  return (totalPE - totalCE) / 1000000;
-};
-
-const saveToDB = async (ref, total) => {
-  const currentTimestamp = Date.now();
-  await ref.push({ timestamp: currentTimestamp, total });
-};
-
-// CPR Graph
-const calculateCeDividePe = (totalCE, totalPE) => {
-  if (totalPE === 0) return null;
-  return totalCE / totalPE;
-};
-
-// PCR Graph
-const calculatePeDivideCe = (totalCE, totalPE) => {
-  if (totalCE === 0) return null;
-  return totalPE / totalCE;
-};
-
-// Spot Price Graph & VIX Graph
-const fetchIndexQuotes = async (symbol) => {
-  try {
-    const indexQuoteData = await sn.snapi.getIndexQuotes(symbol);
-    const parsedData = JSON.parse(indexQuoteData);
-    return parsedData.spotPrice;
-  } catch (error) {
-    console.error(`Error fetching index quotes for ${symbol}:`, error);
-    return null;
-  }
-};
-
-myEmitter.on("myEvent", async (i, sum, volumeData) => {
-  // console.time('time');
-
-  // const niftySpotPrice = await fetchIndexQuotes("NIFTY 50");
-  // const indiaVixSpotPrice = await fetchIndexQuotes("INDIA VIX");
-
-  // if (niftySpotPrice !== null && indiaVixSpotPrice !== null) {
-  //   const timestamp = Date.now();
-  //   const indexQuoteData = {
-  //     NIFTY: niftySpotPrice,
-  //     INDIA_VIX: indiaVixSpotPrice,
-  //     timestamp: timestamp,
-  //   };
-  //   const vixGraphRef = db.ref("vixGraph");
-  //   vixGraphRef.push(indexQuoteData);
-  // } else {
-  //   console.log("indexquote data not found");
-  // }
-
-  await optionDataRef.push(i);
-
-  const totalCE = calculateOpenInterest(i, "CE");
-  const totalPE = calculateOpenInterest(i, "PE");
-
-  saveToDB(db.ref("totalOiCE"), totalCE);
-  saveToDB(db.ref("totalOiPE"), totalPE);
-
-  // Save CPR Graph
-  const ceDividePeValue = calculateCeDividePe(totalCE, totalPE);
-  if (ceDividePeValue !== null) {
-    saveToDB(db.ref("ceDividePe"), ceDividePeValue);
-  }
-
-  // Save PCR Graph
-  const peDivideCeValue = calculatePeDivideCe(totalCE, totalPE);
-  if (peDivideCeValue !== null) {
-    saveToDB(db.ref("peDivideCe"), peDivideCeValue);
-  }
-
-  // Save OI Trend Graph
-  const oiTrendValue = calculateOiTrend(totalCE, totalPE);
-  if (oiTrendValue !== null) {
-    saveToDB(db.ref("oiTrend"), oiTrendValue);
-  }
-
-  // Save Total Volume Graph
-  const totalVolumeGraphRef = db.ref("volumeGraph");
-  totalVolumeGraphRef.push(volumeData);
-
-  // Save Total Oi Graph
-  const totalOiGraphRef = db.ref("totalOiGraph");
-  totalOiGraphRef.push(sum).then(() => {
-    console.log("Sum calculated and saved to the database");
-  });
-  arr.length = 0;
-  console.log("\n All option data added successfully");
-  console.timeEnd("time");
-});
-
-function displayProgressBar(current, total, progressBarLength) {
-  const progress = (current / total) * progressBarLength;
-  const progressBar = `[${"=".repeat(progress)}${" ".repeat(
-    progressBarLength - progress
-  )}]`;
-  process.stdout.write(`\r${current}/${total} ${progressBar}`);
-}
-
-var corsOptions = {
-  origin: "*",
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
-};
-app.use(cors(corsOptions));
-
 var logindata = {
   body: {
     userId: process.env.USERID,
@@ -175,6 +56,87 @@ async function setSessionToken() {
 
 setSessionToken();
 
+// Total OI Graph
+const calculateOpenInterest = (data, type) =>
+  data.reduce(
+    (acc, obj) =>
+      (type ? obj.optionType === type : true)
+        ? acc + parseFloat(obj.openInterest || 0)
+        : acc,
+    0
+  );
+
+// OI Trend Graph
+const calculateOiTrend = (totalCE, totalPE) => {
+  return (totalPE - totalCE) / 1000000;
+};
+
+const saveToDB = async (symbol, ref, total) => {
+  const currentTimestamp = Date.now();
+  if (symbol !== null){
+    await db.ref(symbol).child(ref).push({ timestamp: currentTimestamp, total }).then(()=>{
+    console.log(`Data saved for symbol ${symbol}  || for reference ${ref}`)
+  });
+  }
+};
+
+// CPR Graph
+const calculateCeDividePe = (totalCE, totalPE) => {
+  if (totalPE === 0) return null;
+  return totalCE / totalPE;
+};
+
+// PCR Graph
+const calculatePeDivideCe = (totalCE, totalPE) => {
+  if (totalCE === 0) return null;
+  return totalPE / totalCE;
+};
+
+myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
+  // console.time('time');
+
+  await db.ref(symbol).child("optionData").push(i);
+
+  const totalCE = calculateOpenInterest(i, "CE");
+  const totalPE = calculateOpenInterest(i, "PE");
+
+  saveToDB(symbol, "totalOiCE", totalCE);
+  saveToDB(symbol, "totalOiPE", totalPE);
+
+  // Save CPR Graph
+  const ceDividePeValue = calculateCeDividePe(totalCE, totalPE);
+  if (ceDividePeValue !== null) {
+    saveToDB(symbol, "ceDividePe", ceDividePeValue);
+  }
+
+  // Save PCR Graph
+  const peDivideCeValue = calculatePeDivideCe(totalCE, totalPE);
+  if (peDivideCeValue !== null) {
+    saveToDB(symbol, "peDivideCe", peDivideCeValue);
+  }
+
+  // Save OI Trend Graph
+  const oiTrendValue = calculateOiTrend(totalCE, totalPE);
+  if (oiTrendValue !== null) {
+    saveToDB(symbol, "oiTrend", oiTrendValue);
+  }
+
+  // Save Total Volume Graph
+  if (volumeSum !== null) {
+    saveToDB(symbol, "volumeGraph", volumeSum);
+  }
+
+  // Save Total Oi Graph
+  if (totalOiSum !== null) {
+    saveToDB(symbol, "totalOiGraph", totalOiSum);
+  }
+
+  arr.length = 0;
+  console.log("\n All option data added successfully");
+  console.timeEnd("time");
+});
+
+// Nifty expiry is Thursday
 function getNextThursday() {
   const now = new Date();
   let nextThursday = new Date(now);
@@ -184,7 +146,132 @@ function getNextThursday() {
   ).padStart(2, "0")}-${String(nextThursday.getDate()).padStart(2, "0")}`;
 }
 
-const expiryDate = getNextThursday();
+// Banknifty expiry is Wednesday
+function getNextWednesday() {
+  const now = new Date();
+  let nextWednesday = new Date(now);
+  nextWednesday.setDate(now.getDate() + ((3 - now.getDay() + 7) % 7));
+  return `${nextWednesday.getFullYear()}-${String(
+    nextWednesday.getMonth() + 1
+  ).padStart(2, "0")}-${String(nextWednesday.getDate()).padStart(2, "0")}`;
+}
+
+const expiryDateNifty = getNextThursday();
+const expiryDateBankNifty = getNextWednesday();
+
+const fetchAndSaveOptionChainData = async (option, symbol) => {
+  let expiryDate;
+  try {
+    if (symbol === "NIFTY") {
+      expiryDate = getNextThursday();
+    } else if (symbol === "BANKNIFTY") {
+      expiryDate = getNextWednesday();
+    }
+
+    const options = {
+      expiryDate: expiryDate,
+      optionType:
+        option.type === "CE"
+          ? sn.constants.OPTION_TYPE_CE
+          : sn.constants.OPTION_TYPE_PE,
+      strikePrice: option.strikePrice,
+      exchange: sn.constants.EXCHANGE_NFO,
+    };
+
+    const optionChainData = await sn.snapi.optionchain(symbol, options);
+    return JSON.parse(optionChainData) || 0;
+  } catch (error) {
+    console.error(
+      `Error occurred for ${symbol || "Unknown Symbol"} ${option?.date} ${
+        option?.strikePrice
+      }:`,
+      error
+    );
+  }
+};
+
+function scheduleTask() {
+  const processSymbol = async (symbol, allowedDays) => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    if (
+      allowedDays.includes(dayOfWeek) &&
+      currentTime >= 8 * 60 + 15 && // 9:15 am  9 * 60 + 15
+      currentTime <= 23 * 60 + 30 // 3:30 pm  15 * 60 + 30
+    ) {
+      try {
+        const strikesParamsRef = db.ref(symbol).child("strikesParams");
+        const currentTimestamp = Date.now();
+        strikesParamsRef.once("value").then((snapshot) => {
+          const paramsData = snapshot.val();
+          let totalOiSum = 0;
+          let volumeSum = 0;
+          let totalItems = paramsData.length;
+          let completedItems = 0;
+          let progressBarLength = 50;
+          for (let i = 0; i < totalItems; i++) {
+            setTimeout(async function () {
+              const data = await fetchAndSaveOptionChainData(
+                paramsData[i],
+                symbol
+              );
+              const temp = data.optionChainDetails[0];
+              const { bestBids, bestAsks, ...newobj } = temp;
+
+              if (i === 0) {
+                const spotPriceData = {
+                  timestamp: currentTimestamp,
+                  spotPrice: newobj.spotPrice,
+                };
+                db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
+              }
+
+              arr.push(newobj);
+              totalOiSum += parseFloat(newobj.openInterest);
+              volumeSum += parseFloat(newobj.volume);
+
+              completedItems++;
+
+              displayProgressBar(completedItems, totalItems, progressBarLength);
+
+              if (completedItems === totalItems) {
+                myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
+              }
+            }, i * 500);
+          }
+          console.log("All option data added successfully");
+        });
+      } catch (error) {
+        console.error("An error occurred:", error);
+      }
+    } else {
+      console.log(
+        `Not the right time to run the job for ${symbol}. Skipping...`
+      );
+    }
+  };
+
+  // Process NIFTY from Monday to Thursday
+  processSymbol("NIFTY", [1, 2, 3, 4]);
+
+  // Process BANKNIFTY on Monday to Wednesday
+  processSymbol("BANKNIFTY", [1, 2, 3]);
+
+  setTimeout(scheduleTask, 5 * 60 * 1000);
+}
+
+scheduleTask();
+
+function displayProgressBar(current, total, progressBarLength) {
+  const progress = (current / total) * progressBarLength;
+  const progressBar = `[${"=".repeat(progress)}${" ".repeat(
+    progressBarLength - progress
+  )}]`;
+  process.stdout.write(`\r${current}/${total} ${progressBar}`);
+} 
+
 
 app.get("/optionchain", async (req, res) => {
   try {
@@ -225,7 +312,7 @@ app.get("/indexquote", async (req, res) => {
 app.get("/searchoptions", async (req, res) => {
   console.log("Endpoint accessed");
   var search = {
-    exchange: sn.constants.EXCHANGE_NFO,
+    exchange: [sn.constants.EXCHANGE_NFO, sn.constants.EXCHANGE_NFO_BANK],
   };
 
   sn.snapi
@@ -235,8 +322,10 @@ app.get("/searchoptions", async (req, res) => {
 
       const response = JSON.parse(data);
 
-      const niftyResults = response.searchResults.filter((item) =>
-        item.tradingSymbol.startsWith("NIFTY")
+      const niftyResults = response.searchResults.filter(
+        (item) =>
+          item.tradingSymbol.startsWith("NIFTY") ||
+          item.tradingSymbol.startsWith("BANKNIFTY")
       );
 
       const monthMap = {
@@ -292,192 +381,48 @@ app.get("/searchoptions", async (req, res) => {
       res.status(500).send("Internal Server Error");
     });
 });
-const fetchAndSaveOptionChainData = async (option) => {
-  let symbol;
-  try {
-    symbol = option.symbol === "NIFTY" ? "NIFTY" : "BANKNIFTY";
 
-    const options = {
-      expiryDate: expiryDate,
-      optionType:
-        option.type === "CE"
-          ? sn.constants.OPTION_TYPE_CE
-          : sn.constants.OPTION_TYPE_PE,
-      strikePrice: option.strikePrice,
-      exchange: sn.constants.EXCHANGE_NFO,
-    };
 
-    const optionChainData = await sn.snapi.optionchain(symbol, options);
-    return JSON.parse(optionChainData);
-  } catch (error) {
-    console.error(
-      `Error occurred for ${symbol || "Unknown Symbol"} ${option?.date} ${
-        option?.strikePrice
-      }:`,
-      error
-    );
-  }
-};
-app.get("/spotdata", async (req, res) => {
-  console.time("time");
-
-  try {
-    const septemberDataRef = db.ref("strikesParams");
-    const snapshot = await septemberDataRef.once("value");
-    const septemberData = snapshot.val();
-    const currentTimestamp = Date.now();
-    let sum = 0;
-    let volumeSum = 0;
-    let totalItems = septemberData.length;
-    let completedItems = 0;
-    let progressBarLength = 50;
-    for (let i = 0; i < totalItems; i++) {
-      setTimeout(async function () {
-        const data = await fetchAndSaveOptionChainData(septemberData[i]);
-        // console.log("🚀 ~ file: app.js:221 ~ data:", data);
-        const temp = data.optionChainDetails[0];
-        const { bestBids, bestAsks, ...newobj } = temp;
-
-        arr.push(newobj);
-        sum += parseFloat(newobj.openInterest);
-        volumeSum += parseFloat(newobj.volume);
-
-        completedItems++; // Increment the completed items
-
-        // Update the progress bar
-        displayProgressBar(completedItems, totalItems, progressBarLength);
-
-        if (completedItems === totalItems) {
-          const sumData = {
-            timestamp: currentTimestamp,
-            total: sum,
-          };
-
-          const volumeData = {
-            timestamp: currentTimestamp,
-            total: volumeSum,
-          };
-
-          myEmitter.emit("myEvent", arr, sumData, volumeData);
-
-          // Send the response once all items are processed
-          // res.send('All option data added successfully');
-        }
-      }, i * 500);
-    }
-    res.send("All option data added successfully");
-  } catch (error) {
-    console.error("An error occurred:", error);
-    res.status(500).send("Internal Server Error");
-  }
-});
-
-app.get("/addOIdata", async (req, res) => {
-  var ref = db.ref("optionData");
-  await ref.once("value", function (snapshot) {
-    if (snapshot.exists) {
-      var responce = snapshot.val();
-
-      res.send(`${Object.keys(responce).length}`);
-    } else {
-      console.log("optiondata not exist");
-      res.send("optiondata not exist");
-    }
-  });
-});
-
-function scheduleTask() {
-  // Get the current date and time
-  console.time("time");
-
-  if (
-    dayOfWeek >= 1 &&
-    dayOfWeek <= 4 &&
-    currentTime >= "09:15" &&
-    currentTime <= "15:30"
-  ) {
-    try {
-      const septemberDataRef = db.ref("strikesParams");
-      const currentTimestamp = Date.now();
-      septemberDataRef.once("value").then((snapshot) => {
-        const septemberData = snapshot.val();
-        let sum = 0;
-        let volumeSum = 0;
-        let totalItems = septemberData.length;
-        let completedItems = 0;
-        let progressBarLength = 50;
-        for (let i = 0; i < totalItems; i++) {
-          setTimeout(async function () {
-            const data = await fetchAndSaveOptionChainData(septemberData[i]);
-            const temp = data.optionChainDetails[0];
-            const { bestBids, bestAsks, ...newobj } = temp;
-
-            if (i === 0) {
-              const spotPriceData = {
-                timestamp: currentTimestamp,
-                spotPrice: newobj.spotPrice,
-              };
-              spotPriceGraphRef.push(spotPriceData);
-            }
-
-            arr.push(newobj);
-            sum += parseFloat(newobj.openInterest);
-            volumeSum += parseFloat(newobj.volume);
-
-            completedItems++;
-
-            displayProgressBar(completedItems, totalItems, progressBarLength);
-
-            if (completedItems === totalItems) {
-              const sumData = {
-                timestamp: currentTimestamp,
-                total: sum,
-              };
-
-              const volumeData = {
-                timestamp: currentTimestamp,
-                total: volumeSum,
-              };
-              myEmitter.emit("myEvent", arr, sumData, volumeData);
-            }
-          }, i * 500);
-        }
-        console.log("All option data added successfully");
-      });
-    } catch (error) {
-      console.error("An error occurred:", error);
-    }
-  } else {
-    console.log("Not the right time to run the job. Skipping...");
-  }
-
-  setTimeout(scheduleTask, 5 * 60 * 1000);
+function filterDataByDateAndSymbol(data, date, symbol) {
+  return data.filter((item) => item.date === date && item.symbol === symbol);
 }
 
-scheduleTask();
-
-function filterDataByDate(data, date) {
-  return data.filter((item) => item.date === date);
-}
-
-app.get("/filterWeekData", async (req, res) => {
+app.get("/filterData", async (req, res) => {
   try {
+    const currentDate = new Date();
+    const datesBankNifty = ["2023-12-06", "2023-12-13", "2023-12-20"];
+    const datesNifty = ["2023-12-07", "2023-12-14"];
+    const symbol = "BANKNIFTY"; 
+    let targetDate;
+    if (symbol === "BANKNIFTY") {
+      // Find the next date for BANKNIFTY after the current date
+      targetDate = datesBankNifty.find(date => new Date(date) > currentDate);
+    } else if (symbol === "NIFTY") {
+      // Find the next date for NIFTY after the current date
+      targetDate = datesNifty.find(date => new Date(date) > currentDate);
+    }
+
+    if (!targetDate) {
+      return res.status(404).send('No future date found for the given symbol');
+    }
+
     strikesDataRef
       .once("value")
       .then((snapshot) => {
         const data = snapshot.val();
-        const nextThursday = getNextThursday();
-        const filteredData = filterDataByDate(data, nextThursday);
 
-        console.log(JSON.stringify(filteredData, null, 2));
-        strikesParamsRef.set(filteredData);
+        const filteredData = filterDataByDateAndSymbol(data, targetDate, symbol);
+
+        db.ref(symbol).child("strikesParams").set(filteredData);
         res.json(filteredData);
       })
       .catch((error) => {
         console.error("Error fetching data:", error);
+        res.status(500).send('Error fetching data');
       });
   } catch (error) {
-    console.error("Error fetching data:", error);
+    console.error("Error processing request:", error);
+    res.status(500).send('Error processing request');
   }
 });
 

@@ -258,7 +258,7 @@ function scheduleTask() {
   };
 
   // Process NIFTY from Monday to Thursday
-  processSymbol("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
+  //processSymbol("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
 
   // Process BANKNIFTY on Monday to Wednesday
   processSymbol("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);

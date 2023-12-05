@@ -32,6 +32,13 @@ var logindata = {
     yob: process.env.YOB,
   },
 };
+// db.ref("NIFTY").child("optionData").set({})
+// db.ref("NIFTY").child("peDivideCe").set({})
+// db.ref("NIFTY").child("spotPriceGraph").set({})
+// db.ref("NIFTY").child("totalOiCE").set({})
+// db.ref("NIFTY").child("totalOiGraph").set({})
+// db.ref("NIFTY").child("totalOiPE").set({})
+// db.ref("NIFTY").child("volumeGraph").set({})
 
 async function setSessionToken() {
   try {
@@ -249,7 +256,7 @@ function scheduleTask() {
  // processSymbol("NIFTY", [1, 2, 3, 4]);
 
   // Process BANKNIFTY on Monday to Wednesday
-  processSymbol("BANKNIFTY", [1, 2, 3]);
+  //processSymbol("BANKNIFTY", [1, 2, 3]);
 
   setTimeout(scheduleTask, 5 * 60 * 1000);
 }

@@ -221,7 +221,7 @@ function scheduleTask() {
                 paramsData[i],
                 symbol
               );
-              const temp = data.optionChainDetails[0];
+              const temp = data.optionChainDetails[0] || {};
               const { bestBids, bestAsks, ...newobj } = temp;
 
               if (i === 0) {
@@ -233,8 +233,8 @@ function scheduleTask() {
               }
 
               arr.push(newobj);
-              totalOiSum += parseFloat(newobj.openInterest);
-              volumeSum += parseFloat(newobj.volume);
+              totalOiSum += parseFloat(newobj.openInterest) || 0;
+              volumeSum += parseFloat(newobj.volume) || 0;
 
               completedItems++;
 

@@ -203,7 +203,7 @@ function scheduleTask() {
     if (
       allowedDays.includes(dayOfWeek) &&
       currentTime >= 8 * 60 + 15 && // 9:15 am  9 * 60 + 15
-      currentTime <= 15 * 60 + 30 // 3:30 pm  15 * 60 + 30
+      currentTime <= 23 * 60 + 30 // 3:30 pm  15 * 60 + 30
     ) {
       try {
         const strikesParamsRef = db.ref(symbol).child("strikesParams");

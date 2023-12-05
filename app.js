@@ -186,8 +186,7 @@ const fetchAndSaveOptionChainData = async (option, symbol) => {
     return JSON.parse(optionChainData);
   } catch (error) {
     console.error(
-      `Error occurred for ${symbol || "Unknown Symbol"} ${option?.date} ${
-        option?.strikePrice
+      `Error occurred for ${symbol || "Unknown Symbol"} ${option?.date} ${option?.strikePrice
       }:`,
       error
     );
@@ -221,7 +220,12 @@ function scheduleTask() {
                 paramsData[i],
                 symbol
               );
-              const temp = data.optionChainDetails[0] || {};
+
+              let temp = {};
+              if (Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0) {
+                temp = data.optionChainDetails[0];
+              }
+              
               const { bestBids, bestAsks, ...newobj } = temp;
 
               if (i === 0) {

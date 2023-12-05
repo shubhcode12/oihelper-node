@@ -225,7 +225,7 @@ function scheduleTask() {
               if (Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0) {
                 temp = data.optionChainDetails[0];
               }
-              
+
               const { bestBids, bestAsks, ...newobj } = temp;
 
               if (i === 0) {
@@ -262,10 +262,10 @@ function scheduleTask() {
   };
 
   // Process NIFTY from Monday to Thursday
-  processSymbol("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
+  //processSymbol("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
 
   // Process BANKNIFTY on Monday to Wednesday
-  //processSymbol("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);
+  processSymbol("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);
 
   setTimeout(scheduleTask, 5 * 60 * 1000);
 }

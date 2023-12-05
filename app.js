@@ -228,7 +228,7 @@ function scheduleTask() {
 
               const { bestBids, bestAsks, ...newobj } = temp;
 
-              if (i === 0) {
+              if (i === 30) {
                 const spotPriceData = {
                   timestamp: currentTimestamp,
                   spotPrice: newobj.spotPrice || 0,

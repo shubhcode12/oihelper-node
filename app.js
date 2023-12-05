@@ -243,7 +243,7 @@ function scheduleTask() {
               if (completedItems === totalItems) {
                 myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
               }
-            }, i * 500);
+            }, i * 600);
           }
           console.log("All option data added successfully");
         });

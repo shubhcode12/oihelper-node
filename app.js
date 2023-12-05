@@ -96,7 +96,7 @@ const calculatePeDivideCe = (totalCE, totalPE) => {
   return totalPE / totalCE;
 };
 
-myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
+myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, spotPrice, symbol) => {
   // console.time('time');
 
   await db.ref(symbol).child("optionData").push(i);
@@ -133,6 +133,10 @@ myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
   // Save Total Oi Graph
   if (totalOiSum !== null) {
     saveToDB(symbol, "totalOiGraph", totalOiSum);
+  }
+
+  if(spotPrice !== null){
+    saveToDB(symbol, "spotPriceGraph", spotPrice)
   }
 
   arr.length = 0;
@@ -214,6 +218,7 @@ function scheduleTask() {
           let totalItems = paramsData.length;
           let completedItems = 0;
           let progressBarLength = 50;
+          let spotPrice = 0;
           for (let i = 0; i < totalItems; i++) {
             setTimeout(async function () {
               const data = await fetchAndSaveOptionChainData(
@@ -229,11 +234,12 @@ function scheduleTask() {
               const { bestBids, bestAsks, ...newobj } = temp;
 
               if (i === 30) {
-                const spotPriceData = {
-                  timestamp: currentTimestamp,
-                  spotPrice: newobj.spotPrice || 0,
-                };
-                db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
+                // const spotPriceData = {
+                //   timestamp: currentTimestamp,
+                //   spotPrice: newobj.spotPrice,
+                // };
+                spotPrice == newobj.spotPrice;
+                //db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
               }
 
               arr.push(newobj);
@@ -245,7 +251,7 @@ function scheduleTask() {
               displayProgressBar(completedItems, totalItems, progressBarLength);
 
               if (completedItems === totalItems) {
-                myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
+                myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, spotPrice, symbol);
               }
             }, i * 600);
           }

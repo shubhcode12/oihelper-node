@@ -25,13 +25,10 @@ const strikesDataRef = db.ref("strikesData");
 const strikesParamsRef = db.ref("strikesParams");
 const spotPriceGraphRef = db.ref("spotPriceGraph");
 const EventEmitter = require("events");
-const { timeEnd, timeStamp } = require("console");
 const myEmitter = new EventEmitter();
 const arr = [];
-
 const now = moment();
-const dayOfWeek = now.day(); // 0 (Sunday) to 6 (Saturday)
-const currentTime = now.format("HH:mm");
+
 
 var logindata = {
   body: {
@@ -96,7 +93,7 @@ const calculatePeDivideCe = (totalCE, totalPE) => {
   return totalPE / totalCE;
 };
 
-myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, spotPrice, symbol) => {
+myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
   // console.time('time');
 
   await db.ref(symbol).child("optionData").push(i);
@@ -133,10 +130,6 @@ myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, spotPrice, symbol) => {
   // Save Total Oi Graph
   if (totalOiSum !== null) {
     saveToDB(symbol, "totalOiGraph", totalOiSum);
-  }
-
-  if(spotPrice !== null){
-    saveToDB(symbol, "spotPriceGraph", spotPrice)
   }
 
   arr.length = 0;
@@ -205,7 +198,7 @@ function scheduleTask() {
 
     if (
       allowedDays.includes(dayOfWeek) &&
-      currentTime >= 8 * 60 + 15 && // 9:15 am  9 * 60 + 15
+      currentTime >= 9 * 60 + 15 && // 9:15 am  9 * 60 + 15
       currentTime <= 23 * 60 + 30 // 3:30 pm  15 * 60 + 30
     ) {
       try {
@@ -229,29 +222,32 @@ function scheduleTask() {
               let temp = {};
               if (Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0) {
                 temp = data.optionChainDetails[0];
+
+                const { bestBids, bestAsks, ...newobj } = temp;
+
+                if (i === 151) {
+                  const spotPriceData = {
+                    timestamp: currentTimestamp,
+                    spotPrice: newobj.spotPrice,
+                  };
+                  spotPrice == newobj.spotPrice;
+                  db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
+                }
+
+                arr.push(newobj);
+                totalOiSum += parseFloat(newobj.openInterest);
+                volumeSum += parseFloat(newobj.volume);
+
+              } else {
+                console.warn(`No data available for ${symbol} ${paramsData[i].date} ${paramsData[i].strikePrice}`);
               }
-
-              const { bestBids, bestAsks, ...newobj } = temp;
-
-              if (i === 30) {
-                // const spotPriceData = {
-                //   timestamp: currentTimestamp,
-                //   spotPrice: newobj.spotPrice,
-                // };
-                spotPrice == newobj.spotPrice;
-                //db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
-              }
-
-              arr.push(newobj);
-              totalOiSum += parseFloat(newobj.openInterest) || 0;
-              volumeSum += parseFloat(newobj.volume) || 0;
 
               completedItems++;
 
               displayProgressBar(completedItems, totalItems, progressBarLength);
 
               if (completedItems === totalItems) {
-                myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, spotPrice, symbol);
+                myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
               }
             }, i * 600);
           }

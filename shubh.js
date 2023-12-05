@@ -189,79 +189,72 @@ const fetchAndSaveOptionChainData = async (option, symbol) => {
   }
 };
 
-function scheduleTask() {
-  const processSymbol = async (symbol, allowedDays) => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
 
-    if (
-      allowedDays.includes(dayOfWeek) &&
-      currentTime >= 8 * 60 + 15 && // 9:15 am  9 * 60 + 15
-      currentTime <= 23 * 60 + 30 // 3:30 pm  15 * 60 + 30
-    ) {
-      try {
-        const strikesParamsRef = db.ref(symbol).child("strikesParams");
-        const currentTimestamp = Date.now();
-        strikesParamsRef.once("value").then((snapshot) => {
-          const septemberData = snapshot.val();
-          let totalOiSum = 0;
-          let volumeSum = 0;
-          let totalItems = 5; //septemberData.length;
-          let completedItems = 0;
-          let progressBarLength = 50;
-          for (let i = 0; i < totalItems; i++) {
-            setTimeout(async function () {
-              const data = await fetchAndSaveOptionChainData(
-                septemberData[i],
-                symbol
-              );
-              const temp = data.optionChainDetails[0];
-              const { bestBids, bestAsks, ...newobj } = temp;
+const processOptionData = async (symbol, allowedDays) => {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
 
-              if (i === 0) {
-                const spotPriceData = {
-                  timestamp: currentTimestamp,
-                  spotPrice: newobj.spotPrice,
-                };
-                db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
-              }
+  if (
+    allowedDays.includes(dayOfWeek) &&
+    currentTime >= 8 * 60 + 15 && // 9:15 am  9 * 60 + 15
+    currentTime <= 15 * 60 + 30 // 3:30 pm  15 * 60 + 30
+  ) {
+    try {
+      const strikesParamsRef = db.ref(symbol).child("strikesParams");
+      const currentTimestamp = Date.now();
+      strikesParamsRef.once("value").then((snapshot) => {
+        const paramsData = snapshot.val();
+        let totalOiSum = 0;
+        let volumeSum = 0;
+        let totalItems = 5;//paramsData.length;
+        let completedItems = 0;
+        let progressBarLength = 50;
+        for (let i = 0; i < totalItems; i++) {
+          setTimeout(async function () {
+            const data = await fetchAndSaveOptionChainData(
+              paramsData[i],
+              symbol
+            );
+            const temp = data.optionChainDetails[0];
+            const { bestBids, bestAsks, ...newobj } = temp;
 
-              arr.push(newobj);
-              totalOiSum += parseFloat(newobj.openInterest);
-              volumeSum += parseFloat(newobj.volume);
+            if (i === 0) {
+              const spotPriceData = {
+                timestamp: currentTimestamp,
+                spotPrice: newobj.spotPrice,
+              };
+              db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
+            }
 
-              completedItems++;
+            arr.push(newobj);
+            totalOiSum += parseFloat(newobj.openInterest);
+            volumeSum += parseFloat(newobj.volume);
 
-              displayProgressBar(completedItems, totalItems, progressBarLength);
+            completedItems++;
 
-              if (completedItems === totalItems) {
-                myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
-              }
-            }, i * 500);
-          }
-          console.log("All option data added successfully");
-        });
-      } catch (error) {
-        console.error("An error occurred:", error);
-      }
-    } else {
-      console.log(
-        `Not the right time to run the job for ${symbol}. Skipping...`
-      );
+            displayProgressBar(completedItems, totalItems, progressBarLength);
+
+            if (completedItems === totalItems) {
+              myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
+            }
+          }, i * 500);
+        }
+        console.log("All option data added successfully");
+      });
+    } catch (error) {
+      console.error("An error occurred:", error);
     }
-  };
+  } else {
+    console.log(`Not the right time to run the job for ${symbol}. Skipping...`);
+  }
+};
 
-  // Process NIFTY from Monday to Thursday
- // processSymbol("NIFTY", [1, 2, 3, 4]);
+app.get("/nitish", (req, res) => {
+  processOptionData("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);
+  res.send("calculation done")
+});
 
-  // Process BANKNIFTY on Monday to Wednesday
-  //processSymbol("BANKNIFTY", [1, 2, 3]);
-
-  setTimeout(scheduleTask, 5 * 60 * 1000);
-}
-
-scheduleTask();
 
 function displayProgressBar(current, total, progressBarLength) {
   const progress = (current / total) * progressBarLength;

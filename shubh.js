@@ -32,13 +32,22 @@ var logindata = {
     yob: process.env.YOB,
   },
 };
-// db.ref("NIFTY").child("optionData").set({})
-// db.ref("NIFTY").child("peDivideCe").set({})
-// db.ref("NIFTY").child("spotPriceGraph").set({})
-// db.ref("NIFTY").child("totalOiCE").set({})
-// db.ref("NIFTY").child("totalOiGraph").set({})
-// db.ref("NIFTY").child("totalOiPE").set({})
-// db.ref("NIFTY").child("volumeGraph").set({})
+
+// const databaseFlush = (symbol)=>{
+// db.ref(symbol).child("optionData").set({})
+// db.ref(symbol).child("oiTrend").set({})
+// db.ref(symbol).child("ceDividePe").set({})
+// db.ref(symbol).child("peDivideCe").set({})
+// db.ref(symbol).child("spotPriceGraph").set({})
+// db.ref(symbol).child("totalOiCE").set({})
+// db.ref(symbol).child("totalOiGraph").set({})
+// db.ref(symbol).child("totalOiPE").set({})
+// db.ref(symbol).child("volumeGraph").set({})
+// }
+
+// databaseFlush("NIFTY");
+
+
 
 async function setSessionToken() {
   try {

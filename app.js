@@ -263,8 +263,15 @@ function scheduleTask() {
     }
   };
 
+function scheduleTask() {
+
   // Process NIFTY from Monday to Thursday
   processSymbol("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
+
+  setTimeout(scheduleTask, 5 * 60 * 1000);
+}
+
+function scheduleTask() {
 
   // Process BANKNIFTY on Monday to Wednesday
   processSymbol("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);

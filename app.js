@@ -93,7 +93,7 @@ const calculatePeDivideCe = (totalCE, totalPE) => {
   return totalPE / totalCE;
 };
 
-myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
+myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, spotPrice, symbol) => {
   // console.time('time');
 
   await db.ref(symbol).child("optionData").push(i);
@@ -195,78 +195,77 @@ const fetchAndSaveOptionChainData = async (option, symbol) => {
   }
 };
 
-function scheduleTask() {
-  const processSymbol = async (symbol, allowedDays) => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
+const processSymbol = async (symbol, allowedDays) => {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
 
-    if (
-      allowedDays.includes(dayOfWeek) &&
-      currentTime >= 9 * 60 + 15 && // 9:15 am  9 * 60 + 15
-      currentTime <= 23 * 60 + 30 // 3:30 pm  15 * 60 + 30
-    ) {
-      try {
-        const strikesParamsRef = db.ref(symbol).child("strikesParams");
-        const currentTimestamp = Date.now();
-        strikesParamsRef.once("value").then((snapshot) => {
-          const paramsData = snapshot.val();
-          let totalOiSum = 0;
-          let volumeSum = 0;
-          let totalItems = paramsData.length;
-          let completedItems = 0;
-          let progressBarLength = 50;
-          let spotPrice = 0;
-          for (let i = 0; i < totalItems; i++) {
-            setTimeout(async function () {
-              const data = await fetchAndSaveOptionChainData(
-                paramsData[i],
-                symbol
-              );
+  if (
+    allowedDays.includes(dayOfWeek) &&
+    currentTime >= 9 * 60 + 15 && // 9:15 am  9 * 60 + 15
+    currentTime <= 23 * 60 + 30 // 3:30 pm  15 * 60 + 30
+  ) {
+    try {
+      const strikesParamsRef = db.ref(symbol).child("strikesParams");
+      const currentTimestamp = Date.now();
+      strikesParamsRef.once("value").then((snapshot) => {
+        const paramsData = snapshot.val();
+        let totalOiSum = 0;
+        let volumeSum = 0;
+        let totalItems = paramsData.length;
+        let completedItems = 0;
+        let progressBarLength = 50;
+        let spotPrice = 0;
+        for (let i = 0; i < totalItems; i++) {
+          setTimeout(async function () {
+            const data = await fetchAndSaveOptionChainData(
+              paramsData[i],
+              symbol
+            );
 
-              let temp = {};
-              if (Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0) {
-                temp = data.optionChainDetails[0];
+            let temp = {};
+            if (Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0) {
+              temp = data.optionChainDetails[0];
 
-                const { bestBids, bestAsks, ...newobj } = temp;
+              const { bestBids, bestAsks, ...newobj } = temp;
 
-                if (i === 151) {
-                  const spotPriceData = {
-                    timestamp: currentTimestamp,
-                    spotPrice: newobj.spotPrice,
-                  };
-                  spotPrice == newobj.spotPrice;
-                  db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
-                }
-
-                arr.push(newobj);
-                totalOiSum += parseFloat(newobj.openInterest);
-                volumeSum += parseFloat(newobj.volume);
-
-              } else {
-                console.warn(`No data available for ${symbol} ${paramsData[i].date} ${paramsData[i].strikePrice}`);
+              if (i === 151) {
+                // const spotPriceData = {
+                //   timestamp: currentTimestamp,
+                //   spotPrice: newobj.spotPrice,
+                // };
+                spotPrice == newobj.spotPrice;
+                //db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
               }
 
-              completedItems++;
+              arr.push(newobj);
+              totalOiSum += parseFloat(newobj.openInterest);
+              volumeSum += parseFloat(newobj.volume);
 
-              displayProgressBar(completedItems, totalItems, progressBarLength);
+            } else {
+              console.warn(`No data available for ${symbol} ${paramsData[i].date} ${paramsData[i].strikePrice}`);
+            }
 
-              if (completedItems === totalItems) {
-                myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
-              }
-            }, i * 600);
-          }
-          console.log("All option data added successfully");
-        });
-      } catch (error) {
-        console.error("An error occurred:", error);
-      }
-    } else {
-      console.log(
-        `Not the right time to run the job for ${symbol}. Skipping...`
-      );
+            completedItems++;
+
+            displayProgressBar(completedItems, totalItems, progressBarLength);
+
+            if (completedItems === totalItems) {
+              myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, spotPrice, symbol);
+            }
+          }, i * 600);
+        }
+        console.log("All option data added successfully");
+      });
+    } catch (error) {
+      console.error("An error occurred:", error);
     }
-  };
+  } else {
+    console.log(
+      `Not the right time to run the job for ${symbol}. Skipping...`
+    );
+  }
+};
 
 function scheduleTask() {
 

@@ -81,10 +81,14 @@ const calculateOiTrend = (totalCE, totalPE) => {
 
 const saveToDB = async (symbol, ref, total) => {
   const currentTimestamp = Date.now();
-  if (symbol !== null){
-    await db.ref(symbol).child(ref).push({ timestamp: currentTimestamp, total }).then(()=>{
-    console.log(`Data saved for symbol ${symbol}  || for reference ${ref}`)
-  });
+  if (symbol !== null) {
+    await db
+      .ref(symbol)
+      .child(ref)
+      .push({ timestamp: currentTimestamp, total })
+      .then(() => {
+        console.log(`Data saved for symbol ${symbol}  || for reference ${ref}`);
+      });
   }
 };
 
@@ -100,7 +104,7 @@ const calculatePeDivideCe = (totalCE, totalPE) => {
   return totalPE / totalCE;
 };
 
-myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
+myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, spotPrice, symbol) => {
   // console.time('time');
 
   await db.ref(symbol).child("optionData").push(i);
@@ -137,6 +141,11 @@ myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
   // Save Total Oi Graph
   if (totalOiSum !== null) {
     saveToDB(symbol, "totalOiGraph", totalOiSum);
+  }
+
+  // Save Spot Price
+  if (spotPrice !== null) {
+    saveToDB(symbol, "spotPriceGraph", spotPrice);
   }
 
   arr.length = 0;
@@ -187,11 +196,10 @@ const fetchAndSaveOptionChainData = async (option, symbol) => {
     };
 
     const optionChainData = await sn.snapi.optionchain(symbol, options);
-    return JSON.parse(optionChainData) || 0;
+    return JSON.parse(optionChainData);
   } catch (error) {
     console.error(
-      `Error occurred for ${symbol || "Unknown Symbol"} ${option?.date} ${
-        option?.strikePrice
+      `Error occurred for ${symbol || "Unknown Symbol"} ${option?.date} ${option?.strikePrice
       }:`,
       error
     );
@@ -206,8 +214,8 @@ const processOptionData = async (symbol, allowedDays) => {
 
   if (
     allowedDays.includes(dayOfWeek) &&
-    currentTime >= 8 * 60 + 15 && // 9:15 am  9 * 60 + 15
-    currentTime <= 15 * 60 + 30 // 3:30 pm  15 * 60 + 30
+    currentTime >= 9 * 60 + 15 && // 9:15 am  9 * 60 + 15
+    currentTime <= 23 * 60 + 30 // 3:30 pm  15 * 60 + 30
   ) {
     try {
       const strikesParamsRef = db.ref(symbol).child("strikesParams");
@@ -216,38 +224,48 @@ const processOptionData = async (symbol, allowedDays) => {
         const paramsData = snapshot.val();
         let totalOiSum = 0;
         let volumeSum = 0;
-        let totalItems = 5;//paramsData.length;
+        let totalItems = paramsData.length;
         let completedItems = 0;
         let progressBarLength = 50;
+        let spotPrice = 0;
         for (let i = 0; i < totalItems; i++) {
           setTimeout(async function () {
             const data = await fetchAndSaveOptionChainData(
               paramsData[i],
               symbol
             );
-            const temp = data.optionChainDetails[0];
-            const { bestBids, bestAsks, ...newobj } = temp;
 
-            if (i === 0) {
-              const spotPriceData = {
-                timestamp: currentTimestamp,
-                spotPrice: newobj.spotPrice,
-              };
-              db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
+            let temp = {};
+            if (Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0) {
+              temp = data.optionChainDetails[0];
+
+              const { bestBids, bestAsks, ...newobj } = temp;
+
+              if (i === 151) {
+                // const spotPriceData = {
+                //   timestamp: currentTimestamp,
+                //   spotPrice: newobj.spotPrice,
+                // };
+                spotPrice == newobj.spotPrice;
+                //db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
+              }
+
+              arr.push(newobj);
+              totalOiSum += parseFloat(newobj.openInterest);
+              volumeSum += parseFloat(newobj.volume);
+
+            } else {
+              console.warn(`No data available for ${symbol} ${paramsData[i].date} ${paramsData[i].strikePrice}`);
             }
-
-            arr.push(newobj);
-            totalOiSum += parseFloat(newobj.openInterest);
-            volumeSum += parseFloat(newobj.volume);
 
             completedItems++;
 
             displayProgressBar(completedItems, totalItems, progressBarLength);
 
             if (completedItems === totalItems) {
-              myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
+              myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, spotPrice, symbol);
             }
-          }, i * 500);
+          }, i * 600);
         }
         console.log("All option data added successfully");
       });
@@ -255,11 +273,18 @@ const processOptionData = async (symbol, allowedDays) => {
       console.error("An error occurred:", error);
     }
   } else {
-    console.log(`Not the right time to run the job for ${symbol}. Skipping...`);
+    console.log(
+      `Not the right time to run the job for ${symbol}. Skipping...`
+    );
   }
 };
 
-app.get("/nitish", (req, res) => {
+app.get("/nifty", (req, res) => {
+  processOptionData("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
+  res.send("calculation done")
+});
+
+app.get("/banknifty", (req, res) => {
   processOptionData("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);
   res.send("calculation done")
 });

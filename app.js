@@ -267,7 +267,7 @@ const processSymbol = async (symbol, allowedDays) => {
   }
 };
 
-function scheduleTask() {
+function scheduleNiftyTask() {
 
   // Process NIFTY from Monday to Thursday
   processSymbol("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
@@ -275,7 +275,7 @@ function scheduleTask() {
   setTimeout(scheduleTask, 5 * 60 * 1000);
 }
 
-function scheduleTask() {
+function scheduleBankNiftyTask() {
 
   // Process BANKNIFTY on Monday to Wednesday
   processSymbol("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);
@@ -283,7 +283,8 @@ function scheduleTask() {
   setTimeout(scheduleTask, 5 * 60 * 1000);
 }
 
-scheduleTask();
+scheduleNiftyTask();
+scheduleBankNiftyTask();
 
 function displayProgressBar(current, total, progressBarLength) {
   const progress = (current / total) * progressBarLength;

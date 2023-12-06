@@ -132,6 +132,11 @@ myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
     saveToDB(symbol, "totalOiGraph", totalOiSum);
   }
 
+  // Save Spot Price
+  if (spotPrice !== null) {
+    saveToDB(symbol, "spotPriceGraph", spotPrice);
+  }
+
   arr.length = 0;
   console.log("\n All option data added successfully");
   console.timeEnd("time");

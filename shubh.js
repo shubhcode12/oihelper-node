@@ -114,7 +114,7 @@ const calculatePeDivideCe = (totalCE, totalPE) => {
   return totalPE / totalCE;
 };
 
-myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, spotPrice, symbol) => {
+myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
   // console.time('time');
 
   await db.ref(symbol).child("optionData").push(i);
@@ -263,7 +263,7 @@ const processOptionData = async (symbol, allowedDays) => {
             displayProgressBar(completedItems, totalItems, progressBarLength);
 
             if (completedItems === totalItems) {
-              myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, spotPrice, symbol);
+              myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
             }
           }, i * 600);
         }

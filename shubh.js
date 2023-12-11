@@ -72,7 +72,7 @@ async function setSessionToken() {
   }
 }
 
-//setSessionToken();
+setSessionToken();
 
 // Total OI Graph
 const calculateOpenInterest = (data, type) =>

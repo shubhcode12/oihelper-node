@@ -143,10 +143,6 @@ myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, spotPrice, symbol) => {
     saveToDB(symbol, "totalOiGraph", totalOiSum);
   }
 
-  // Save Spot Price
-  if (spotPrice !== null) {
-    saveToDB(symbol, "spotPriceGraph", spotPrice);
-  }
 
   arr.length = 0;
   console.log("\n All option data added successfully");
@@ -227,7 +223,6 @@ const processOptionData = async (symbol, allowedDays) => {
         let totalItems = paramsData.length;
         let completedItems = 0;
         let progressBarLength = 50;
-        let spotPrice = 0;
         for (let i = 0; i < totalItems; i++) {
           setTimeout(async function () {
             const data = await fetchAndSaveOptionChainData(
@@ -242,12 +237,7 @@ const processOptionData = async (symbol, allowedDays) => {
               const { bestBids, bestAsks, ...newobj } = temp;
 
               if (i === 151) {
-                // const spotPriceData = {
-                //   timestamp: currentTimestamp,
-                //   spotPrice: newobj.spotPrice,
-                // };
-                spotPrice == newobj.spotPrice;
-                //db.ref(symbol).child("spotPriceGraph").push(spotPriceData);
+                saveToDB(symbol, "spotPriceGraph", newobj.spotPrice);
               }
 
               arr.push(newobj);
@@ -296,7 +286,7 @@ function displayProgressBar(current, total, progressBarLength) {
     progressBarLength - progress
   )}]`;
   process.stdout.write(`\r${current}/${total} ${progressBar}`);
-} 
+}
 
 
 app.listen(process.env.PORT, () =>

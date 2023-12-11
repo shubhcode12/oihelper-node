@@ -33,19 +33,29 @@ var logindata = {
   },
 };
 
-// const databaseFlush = (symbol)=>{
-// db.ref(symbol).child("optionData").set({})
-// db.ref(symbol).child("oiTrend").set({})
-// db.ref(symbol).child("ceDividePe").set({})
-// db.ref(symbol).child("peDivideCe").set({})
-// db.ref(symbol).child("spotPriceGraph").set({})
-// db.ref(symbol).child("totalOiCE").set({})
-// db.ref(symbol).child("totalOiGraph").set({})
-// db.ref(symbol).child("totalOiPE").set({})
-// db.ref(symbol).child("volumeGraph").set({})
-// }
+const databaseFlush = (symbol) => {
+  const childPaths = [
+    "optionData",
+    "oiTrend",
+    "ceDividePe",
+    "peDivideCe",
+    "spotPriceGraph",
+    "totalOiCE",
+    "totalOiGraph",
+    "totalOiPE",
+    "volumeGraph",
+  ];
 
-// databaseFlush("NIFTY");
+  childPaths.forEach((path) => {
+    db.ref(symbol).child(path).set({}, (error) => {
+      if (error) {
+        console.error(`Error removing data at ${symbol}/${path}:`, error);
+      } else {
+        console.log(`Data at ${symbol}/${path} removed successfully.`);
+      }
+    });
+  });
+};
 
 
 
@@ -62,7 +72,7 @@ async function setSessionToken() {
   }
 }
 
-setSessionToken();
+//setSessionToken();
 
 // Total OI Graph
 const calculateOpenInterest = (data, type) =>
@@ -277,6 +287,12 @@ app.get("/nifty", (req, res) => {
 app.get("/banknifty", (req, res) => {
   processOptionData("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);
   res.send("calculation done")
+});
+
+app.get("/dataflush", (req, res) => {
+  databaseFlush("NIFTY");
+  databaseFlush("BANKNIFTY")
+  res.status(200).json({ message: 'Data flushed successfully.' });
 });
 
 

@@ -159,36 +159,28 @@ myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
   console.timeEnd("time");
 });
 
-// Nifty expiry is Thursday
-function getNextThursday() {
-  const now = new Date();
-  let nextThursday = new Date(now);
-  nextThursday.setDate(now.getDate() + ((11 - now.getDay()) % 7));
-  return `${nextThursday.getFullYear()}-${String(
-    nextThursday.getMonth() + 1
-  ).padStart(2, "0")}-${String(nextThursday.getDate()).padStart(2, "0")}`;
+const niftyExpiryArray = ["2023-12-07", "2023-12-14", "2023-12-21", "2023-12-28", "2024-01-04", "2024-01-11", "2024-01-18", "2024-01-25"];
+const bankniftyExpiryArray = ["2023-12-06", "2023-12-13", "2023-12-20", "2023-12-28", "2024-01-03", "2024-01-10", "2024-01-17", "2024-01-25"];
+
+function getNextExpiry(datesArray) {
+  const currentDate = new Date();
+  const formattedCurrentDate = currentDate.toISOString().split('T')[0];
+  
+  const futureDates = datesArray.filter(date => date > formattedCurrentDate).sort();
+
+  return futureDates[0] || null;
 }
 
-// Banknifty expiry is Wednesday
-function getNextWednesday() {
-  const now = new Date();
-  let nextWednesday = new Date(now);
-  nextWednesday.setDate(now.getDate() + ((3 - now.getDay() + 7) % 7));
-  return `${nextWednesday.getFullYear()}-${String(
-    nextWednesday.getMonth() + 1
-  ).padStart(2, "0")}-${String(nextWednesday.getDate()).padStart(2, "0")}`;
-}
-
-const expiryDateNifty = getNextThursday();
-const expiryDateBankNifty = getNextWednesday();
+const getNextNiftyExpiry = () => getNextExpiry(niftyExpiryArray);
+const getNextBankNiftyExpiry = () => getNextExpiry(bankniftyExpiryArray);
 
 const fetchAndSaveOptionChainData = async (option, symbol) => {
   let expiryDate;
   try {
     if (symbol === "NIFTY") {
-      expiryDate = getNextThursday();
+      expiryDate = getNextNiftyExpiry();
     } else if (symbol === "BANKNIFTY") {
-      expiryDate = getNextWednesday();
+      expiryDate = getNextBankNiftyExpiry();
     }
 
     const options = {

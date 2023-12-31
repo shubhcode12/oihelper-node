@@ -1,31 +1,58 @@
-require("dotenv").config();
-const express = require("express");
-const admin = require("firebase-admin");
-var sn = require("stocknotejsbridge");
-var cron = require("node-cron");
+require('dotenv').config();
+const express = require('express');
+const admin = require('firebase-admin');
+const sn = require('stocknotejsbridge');
+const { set, get } = new (require('node-cache'))();
 
 // Load Firebase BASE64 Creds
-const serviceAccount = JSON.parse(
-  Buffer.from(process.env.FIREBASE_CREDENTIALS_BASE64, "base64").toString()
-);
+const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_CREDENTIALS_BASE64, 'base64').toString());
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: process.env.DATABASE_URL,
-});
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount), databaseURL: process.env.DATABASE_URL });
 
 const PORT = process.env.PORT || 3000;
 const db = admin.database();
 const app = express();
-const bodyParser = require("body-parser");
-app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-const EventEmitter = require("events");
+
+const niftyExpiryArray = [
+  '2023-12-07',
+  '2023-12-14',
+  '2023-12-21',
+  '2023-12-28',
+  '2024-01-04',
+  '2024-01-11',
+  '2024-01-18',
+  '2024-01-25',
+];
+const bankniftyExpiryArray = [
+  '2023-12-06',
+  '2023-12-13',
+  '2023-12-20',
+  '2023-12-28',
+  '2024-01-03',
+  '2024-01-10',
+  '2024-01-17',
+  '2024-01-25',
+];
+
+const getNextExpiry = (datesArray) =>
+  datesArray.filter((date) => date > new Date().toISOString().split('T')[0]).sort()[0] || null;
+
+const getNextNiftyExpiry = () => getNextExpiry(niftyExpiryArray);
+const getNextBankNiftyExpiry = () => getNextExpiry(bankniftyExpiryArray);
+
+const EventEmitter = require('events');
 const myEmitter = new EventEmitter();
 const arr = [];
 
-var logindata = {
+const displayProgressBar = (current, total, progressBarLength) => {
+  const progress = (current / total) * progressBarLength;
+  const progressBar = `[${'='.repeat(progress)}${' '.repeat(progressBarLength - progress)}]`;
+  process.stdout.write(`\r${current}/${total} ${progressBar}`);
+};
+
+const logindata = {
   body: {
     userId: process.env.USERID,
     password: process.env.PASSWORD,
@@ -35,67 +62,62 @@ var logindata = {
 
 const databaseFlush = (symbol) => {
   const childPaths = [
-    "optionData",
-    "oiTrend",
-    "ceDividePe",
-    "peDivideCe",
-    "spotPriceGraph",
-    "totalOiCE",
-    "totalOiGraph",
-    "totalOiPE",
-    "volumeGraph",
+    'optionData',
+    'oiTrend',
+    'ceDividePe',
+    'peDivideCe',
+    'spotPriceGraph',
+    'totalOiCE',
+    'totalOiGraph',
+    'totalOiPE',
+    'volumeGraph',
   ];
 
   childPaths.forEach((path) => {
-    db.ref(symbol).child(path).set({}, (error) => {
-      if (error) {
-        console.error(`Error removing data at ${symbol}/${path}:`, error);
-      } else {
-        console.log(`Data at ${symbol}/${path} removed successfully.`);
-      }
-    });
+    db.ref(symbol)
+      .child(path)
+      .set({}, (error) => {
+        if (error) {
+          console.error(`Error removing data at ${symbol}/${path}:`, error);
+        } else {
+          console.log(`Data at ${symbol}/${path} removed successfully.`);
+        }
+      });
   });
 };
 
-
-
-async function setSessionToken() {
+const getSessionToken = async () => {
   try {
+    const cachedToken = await get('sessionToken');
+    if (cachedToken) return cachedToken;
+
     const loginResponse = await sn.snapi.userLogin(logindata);
-    const responce = JSON.parse(loginResponse);
-
-    const sessionToken = responce["sessionToken"];
-    sn.snapi.setSessionToken(sessionToken);
-    console.log("Session Token set:", sessionToken);
+    const response = JSON.parse(loginResponse);
+    const sessionToken = response['sessionToken'];
+    set('sessionToken', sessionToken, 12 * 60 * 60);
+    return sessionToken;
   } catch (error) {
-    console.error("Error setting Session Token:", error);
+    console.error('Error in getSessionToken:', error);
+    throw error;
   }
-}
-
-setSessionToken();
+};
 
 // Total OI Graph
 const calculateOpenInterest = (data, type) =>
   data.reduce(
-    (acc, obj) =>
-      (type ? obj.optionType === type : true)
-        ? acc + parseFloat(obj.openInterest || 0)
-        : acc,
+    (acc, obj) => ((type ? obj.optionType === type : true) ? acc + parseFloat(obj.openInterest || 0) : acc),
     0
   );
 
 // OI Trend Graph
-const calculateOiTrend = (totalCE, totalPE) => {
-  return (totalPE - totalCE) / 1000000;
-};
+const calculateOiTrend = (totalCE, totalPE) => (totalPE - totalCE) / 1000000;
 
 const saveToDB = async (symbol, ref, total) => {
-  const currentTimestamp = Date.now();
   if (symbol !== null) {
     await db
       .ref(symbol)
       .child(ref)
-      .push({ timestamp: currentTimestamp, total })
+      .push({ timestamp: Date.now(), total })
       .then(() => {
         console.log(`Data saved for symbol ${symbol}  || for reference ${ref}`);
       });
@@ -103,200 +125,124 @@ const saveToDB = async (symbol, ref, total) => {
 };
 
 // CPR Graph
-const calculateCeDividePe = (totalCE, totalPE) => {
-  if (totalPE === 0) return null;
-  return totalCE / totalPE;
-};
+const calculateCeDividePe = (totalCE, totalPE) => (totalPE === 0 ? null : totalCE / totalPE);
 
 // PCR Graph
-const calculatePeDivideCe = (totalCE, totalPE) => {
-  if (totalCE === 0) return null;
-  return totalPE / totalCE;
-};
+const calculatePeDivideCe = (totalCE, totalPE) => (totalCE === 0 ? null : totalPE / totalCE);
 
-myEmitter.on("myEvent", async (i, totalOiSum, volumeSum, symbol) => {
-  // console.time('time');
+myEmitter.on('myEvent', async (i, totalOiSum, volumeSum, symbol) => {
+  await db.ref(symbol).child('optionData').push(i);
 
-  await db.ref(symbol).child("optionData").push(i);
+  const totalCE = calculateOpenInterest(i, 'CE');
+  const totalPE = calculateOpenInterest(i, 'PE');
 
-  const totalCE = calculateOpenInterest(i, "CE");
-  const totalPE = calculateOpenInterest(i, "PE");
-
-  saveToDB(symbol, "totalOiCE", totalCE);
-  saveToDB(symbol, "totalOiPE", totalPE);
+  saveToDB(symbol, 'totalOiCE', totalCE);
+  saveToDB(symbol, 'totalOiPE', totalPE);
 
   // Save CPR Graph
   const ceDividePeValue = calculateCeDividePe(totalCE, totalPE);
-  if (ceDividePeValue !== null) {
-    saveToDB(symbol, "ceDividePe", ceDividePeValue);
-  }
+  if (ceDividePeValue !== null) saveToDB(symbol, 'ceDividePe', ceDividePeValue);
 
   // Save PCR Graph
   const peDivideCeValue = calculatePeDivideCe(totalCE, totalPE);
-  if (peDivideCeValue !== null) {
-    saveToDB(symbol, "peDivideCe", peDivideCeValue);
-  }
+  if (peDivideCeValue !== null) saveToDB(symbol, 'peDivideCe', peDivideCeValue);
 
   // Save OI Trend Graph
   const oiTrendValue = calculateOiTrend(totalCE, totalPE);
-  if (oiTrendValue !== null) {
-    saveToDB(symbol, "oiTrend", oiTrendValue);
-  }
+  if (oiTrendValue !== null) saveToDB(symbol, 'oiTrend', oiTrendValue);
 
   // Save Total Volume Graph
-  if (volumeSum !== null) {
-    saveToDB(symbol, "volumeGraph", volumeSum);
-  }
+  if (volumeSum !== null) saveToDB(symbol, 'volumeGraph', volumeSum);
 
   // Save Total Oi Graph
-  if (totalOiSum !== null) {
-    saveToDB(symbol, "totalOiGraph", totalOiSum);
-  }
-
+  if (totalOiSum !== null) saveToDB(symbol, 'totalOiGraph', totalOiSum);
 
   arr.length = 0;
-  console.log("\n All option data added successfully");
-  console.timeEnd("time");
+  console.log('\n All option data added successfully');
 });
 
-const niftyExpiryArray = ["2023-12-07", "2023-12-14", "2023-12-21", "2023-12-28", "2024-01-04", "2024-01-11", "2024-01-18", "2024-01-25"];
-const bankniftyExpiryArray = ["2023-12-06", "2023-12-13", "2023-12-20", "2023-12-28", "2024-01-03", "2024-01-10", "2024-01-17", "2024-01-25"];
-
-function getNextExpiry(datesArray) {
-  const currentDate = new Date();
-  const formattedCurrentDate = currentDate.toISOString().split('T')[0];
-  
-  const futureDates = datesArray.filter(date => date > formattedCurrentDate).sort();
-
-  return futureDates[0] || null;
-}
-
-const getNextNiftyExpiry = () => getNextExpiry(niftyExpiryArray);
-const getNextBankNiftyExpiry = () => getNextExpiry(bankniftyExpiryArray);
-
 const fetchAndSaveOptionChainData = async (option, symbol) => {
-  let expiryDate;
+  const expiryDate =
+    symbol === 'NIFTY' ? getNextNiftyExpiry() : symbol === 'BANKNIFTY' ? getNextBankNiftyExpiry() : null;
   try {
-    if (symbol === "NIFTY") {
-      expiryDate = getNextNiftyExpiry();
-    } else if (symbol === "BANKNIFTY") {
-      expiryDate = getNextBankNiftyExpiry();
-    }
-
     const options = {
       expiryDate: expiryDate,
-      optionType:
-        option.type === "CE"
-          ? sn.constants.OPTION_TYPE_CE
-          : sn.constants.OPTION_TYPE_PE,
+      optionType: option.type === 'CE' ? 'CE' : 'PE',
       strikePrice: option.strikePrice,
-      exchange: sn.constants.EXCHANGE_NFO,
+      exchange: 'NFO',
     };
 
+    const sessionToken = await getSessionToken();
+    await sn.snapi.setSessionToken(sessionToken);
     const optionChainData = await sn.snapi.optionchain(symbol, options);
     return JSON.parse(optionChainData);
   } catch (error) {
-    console.error(
-      `Error occurred for ${symbol || "Unknown Symbol"} ${option?.date} ${option?.strikePrice
-      }:`,
-      error
-    );
+    console.error(`Error occurred for ${symbol || 'Unknown Symbol'} ${option?.date} ${option?.strikePrice}:`, error);
   }
 };
-
 
 const processOptionData = async (symbol, allowedDays) => {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const currentTime = now.getHours() * 60 + now.getMinutes();
+  const isCorrectTimeRange =
+    allowedDays.includes(dayOfWeek) && currentTime >= 9 * 60 + 15 && currentTime <= 15 * 60 + 30;
 
-  if (
-    allowedDays.includes(dayOfWeek) &&
-    currentTime >= 9 * 60 + 15 && // 9:15 am  9 * 60 + 15
-    currentTime <= 15 * 60 + 30 // 3:30 pm  15 * 60 + 30
-  ) {
-    try {
-      const strikesParamsRef = db.ref(symbol).child("strikesParams");
-      const currentTimestamp = Date.now();
-      strikesParamsRef.once("value").then((snapshot) => {
-        const paramsData = snapshot.val();
-        let totalOiSum = 0;
-        let volumeSum = 0;
-        let totalItems = paramsData.length;
-        let completedItems = 0;
-        let progressBarLength = 50;
-        for (let i = 0; i < totalItems; i++) {
-          setTimeout(async function () {
-            const data = await fetchAndSaveOptionChainData(
-              paramsData[i],
-              symbol
-            );
+  if (!isCorrectTimeRange) {
+    console.log(`Not the right time to run the job for ${symbol}. Skipping...`);
+    return;
+  }
 
-            let temp = {};
-            if (Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0) {
-              temp = data.optionChainDetails[0];
+  try {
+    const strikesParamsRef = db.ref(symbol).child('strikesParams');
+    strikesParamsRef.once('value').then((snapshot) => {
+      const paramsData = snapshot.val();
+      let totalOiSum = 0;
+      let volumeSum = 0;
+      let totalItems = paramsData.length;
+      let completedItems = 0;
+      let progressBarLength = 50;
+      for (let i = 0; i < totalItems; i++) {
+        setTimeout(async () => {
+          const data = await fetchAndSaveOptionChainData(paramsData[i], symbol);
+          if (!(Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0)) {
+            console.warn(`No data available for ${symbol} ${paramsData[i].date} ${paramsData[i].strikePrice}`);
+            return;
+          }
+          const { bestBids, bestAsks, ...newobj } = data.optionChainDetails[0];
+          if (i === 151) saveToDB(symbol, 'spotPriceGraph', newobj.spotPrice);
 
-              const { bestBids, bestAsks, ...newobj } = temp;
+          arr.push(newobj);
+          totalOiSum += parseFloat(newobj.openInterest);
+          volumeSum += parseFloat(newobj.volume);
+          
+          completedItems++;
+          displayProgressBar(completedItems, totalItems, progressBarLength);
 
-              if (i === 151) {
-                saveToDB(symbol, "spotPriceGraph", newobj.spotPrice);
-              }
-
-              arr.push(newobj);
-              totalOiSum += parseFloat(newobj.openInterest);
-              volumeSum += parseFloat(newobj.volume);
-
-            } else {
-              console.warn(`No data available for ${symbol} ${paramsData[i].date} ${paramsData[i].strikePrice}`);
-            }
-
-            completedItems++;
-
-            displayProgressBar(completedItems, totalItems, progressBarLength);
-
-            if (completedItems === totalItems) {
-              myEmitter.emit("myEvent", arr, totalOiSum, volumeSum, symbol);
-            }
-          }, i * 600);
-        }
-        console.log("All option data added successfully");
-      });
-    } catch (error) {
-      console.error("An error occurred:", error);
-    }
-  } else {
-    console.log(
-      `Not the right time to run the job for ${symbol}. Skipping...`
-    );
+          if (completedItems === totalItems) myEmitter.emit('myEvent', arr, totalOiSum, volumeSum, symbol);
+        }, i * 600);
+      }
+      console.log('All option data added successfully');
+    });
+  } catch (error) {
+    console.error('An error occurred:', error);
   }
 };
 
-app.get("/nifty", (req, res) => {
-  processOptionData("NIFTY", [1, 2, 3, 4, 5, 6, 7]);
-  res.send("calculation done")
+app.get('/nifty', (req, res) => {
+  processOptionData('NIFTY', [1, 2, 3, 4, 5, 6, 7]);
+  res.send('calculation done');
 });
 
-app.get("/banknifty", (req, res) => {
-  processOptionData("BANKNIFTY", [1, 2, 3, 4, 5, 6, 7]);
-  res.send("calculation done")
+app.get('/banknifty', (req, res) => {
+  processOptionData('BANKNIFTY', [1, 2, 3, 4, 5, 6, 7]);
+  res.send('calculation done');
 });
 
-app.get("/dataflush", (req, res) => {
-  databaseFlush("NIFTY");
-  databaseFlush("BANKNIFTY")
+app.get('/dataflush', (req, res) => {
+  databaseFlush('NIFTY');
+  databaseFlush('BANKNIFTY');
   res.status(200).json({ message: 'Data flushed successfully.' });
 });
 
-
-function displayProgressBar(current, total, progressBarLength) {
-  const progress = (current / total) * progressBarLength;
-  const progressBar = `[${"=".repeat(progress)}${" ".repeat(
-    progressBarLength - progress
-  )}]`;
-  process.stdout.write(`\r${current}/${total} ${progressBar}`);
-}
-
-
-app.listen(process.env.PORT, () =>
-  console.log(`Oihelper app listening on port ${process.env.PORT}!`)
-);
+app.listen(PORT, () => console.log(`Oihelper app listening on port ${PORT}!`));

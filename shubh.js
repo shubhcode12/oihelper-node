@@ -37,7 +37,9 @@ const bankniftyExpiryArray = [
 ];
 
 const getNextExpiry = (datesArray) =>
-  datesArray.filter((date) => date > new Date().toISOString().split('T')[0]).sort()[0] || null;
+    datesArray
+        .filter((date) => date > new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0])
+        .sort()[0] || null;
 
 const getNextNiftyExpiry = () => getNextExpiry(niftyExpiryArray);
 const getNextBankNiftyExpiry = () => getNextExpiry(bankniftyExpiryArray);

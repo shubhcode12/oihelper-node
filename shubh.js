@@ -210,7 +210,7 @@ const processOptionData = async (symbol, allowedDays) => {
             return;
           }
           const { bestBids, bestAsks, ...newobj } = data.optionChainDetails[0];
-          if (i === 151) saveToDB(symbol, 'spotPriceGraph', newobj.spotPrice);
+          if (i === 151) saveToDB(symbol, 'spotPriceGraph', newobj.spotPrice || 0);
 
           arr.push(newobj);
           totalOiSum += parseFloat(newobj.openInterest);

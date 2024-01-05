@@ -41,7 +41,8 @@ const getNextExpiry = (datesArray) =>
 
 const getNextNiftyExpiry = () => getNextExpiry(niftyExpiryArray);
 const getNextBankNiftyExpiry = () => getNextExpiry(bankniftyExpiryArray);
-
+console.log(getNextNiftyExpiry());
+console.log(getNextBankNiftyExpiry());
 const EventEmitter = require('events');
 const myEmitter = new EventEmitter();
 const arr = [];

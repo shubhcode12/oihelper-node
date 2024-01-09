@@ -53,8 +53,7 @@ const getNextExpiry = (datesArray) =>
 
 const getNextNiftyExpiry = () => getNextExpiry(niftyExpiryArray);
 const getNextBankNiftyExpiry = () => getNextExpiry(bankniftyExpiryArray);
-console.log(getNextNiftyExpiry());
-console.log(getNextBankNiftyExpiry());
+
 const EventEmitter = require('events');
 const myEmitter = new EventEmitter();
 const arr = [];
@@ -185,7 +184,6 @@ const fetchAndSaveOptionChainData = async (option, symbol) => {
       console.error(`Invalid expiryDate for ${symbol}`);
       return null;
     }
-
     const options = {
       expiryDate: expiryDate,
       optionType: option.type === 'CE' ? 'CE' : 'PE',
@@ -197,10 +195,17 @@ const fetchAndSaveOptionChainData = async (option, symbol) => {
     await sn.snapi.setSessionToken(sessionToken);
     const optionChainData = await sn.snapi.optionchain(symbol, options);
 
-    if (optionChainData && optionChainData.optionChainDetails) {
-      return JSON.parse(optionChainData);
+    if (optionChainData && typeof optionChainData === 'string') {
+      // return JSON.parse(optionChainData);
+      try {
+        const data = JSON.parse(optionChainData);
+        return data;
+      } catch (error) {
+        console.error(`Error parsing optionChainData for ${symbol} ${option?.date}`);
+        return null;
+      }
     } else {
-      console.error(`Invalid optionChainData for ${symbol} ${option?.date} :`, optionChainData);
+      console.error(`Invalid optionChainData for ${symbol} ${option?.date} :`);
       return null;
     }
   } catch (error) {
@@ -232,22 +237,26 @@ const processOptionData = async (symbol, allowedDays) => {
       let progressBarLength = 50;
       for (let i = 0; i < totalItems; i++) {
         setTimeout(async () => {
-          const data = await fetchAndSaveOptionChainData(paramsData[i], symbol);
-          if (!(Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0)) {
-            console.warn(`No data available for ${symbol} ${paramsData[i].date}`);
-            return;
+          try {
+            const data = await fetchAndSaveOptionChainData(paramsData[i], symbol);
+            if (!(Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0)) {
+              console.warn(`No data available for ${symbol} ${paramsData[i].date}`);
+              return;
+            }
+            const { bestBids, bestAsks, ...newobj } = data.optionChainDetails[0];
+            if (i === 151) saveToDB(symbol, 'spotPriceGraph', newobj.spotPrice || 0);
+
+            arr.push(newobj);
+            totalOiSum += parseFloat(newobj.openInterest);
+            volumeSum += parseFloat(newobj.volume);
+
+            completedItems++;
+            displayProgressBar(completedItems, totalItems, progressBarLength);
+
+            if (completedItems === totalItems) myEmitter.emit('myEvent', arr, totalOiSum, volumeSum, symbol);
+          } catch (error) {
+            console.error(`Error occurred for ${symbol} ${paramsData[i].date}`, error);
           }
-          const { bestBids, bestAsks, ...newobj } = data.optionChainDetails[0];
-          if (i === 151) saveToDB(symbol, 'spotPriceGraph', newobj.spotPrice || 0);
-
-          arr.push(newobj);
-          totalOiSum += parseFloat(newobj.openInterest);
-          volumeSum += parseFloat(newobj.volume);
-
-          completedItems++;
-          displayProgressBar(completedItems, totalItems, progressBarLength);
-
-          if (completedItems === totalItems) myEmitter.emit('myEvent', arr, totalOiSum, volumeSum, symbol);
         }, i * 400);
       }
       console.log('All option data added successfully');
@@ -258,13 +267,13 @@ const processOptionData = async (symbol, allowedDays) => {
 };
 
 app.get('/nifty', async (req, res) => {
-  const token = await getSessionToken();
+  await getSessionToken();
   processOptionData('NIFTY', [1, 2, 3, 4, 5, 6, 7]);
   res.send('calculation done');
 });
 
 app.get('/banknifty', async (req, res) => {
-  const token = await getSessionToken();
+  await getSessionToken();
   processOptionData('BANKNIFTY', [1, 2, 3, 4, 5, 6, 7]);
   res.send('calculation done');
 });

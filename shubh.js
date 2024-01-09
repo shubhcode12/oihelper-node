@@ -3,12 +3,12 @@ const express = require('express');
 const admin = require('firebase-admin');
 const sn = require('stocknotejsbridge');
 const { createClient } = require('redis');
-
+const appName = process.env.APP_NAME;
 const client = createClient({
   url: process.env.REDIS_URL,
 });
 
-client.connect().then((x) => {
+client.connect().then(() => {
   console.log('connected to redis');
 });
 
@@ -101,7 +101,7 @@ const databaseFlush = (symbol) => {
 
 const getSessionToken = async () => {
   try {
-    const cachedToken = await client.get('sessionToken');
+    const cachedToken = await client.get('sessionToken' + appName);
     if (cachedToken) {
       return cachedToken;
     }
@@ -109,7 +109,7 @@ const getSessionToken = async () => {
     const loginResponse = await sn.snapi.userLogin(logindata);
     const response = JSON.parse(loginResponse);
     const sessionToken = response['sessionToken'];
-    await client.setEx('sessionToken', 12 * 60 * 60, sessionToken);
+    await client.setEx('sessionToken' + appName, 12 * 60 * 60, sessionToken);
     return sessionToken;
   } catch (error) {
     console.error('Error in getSessionToken:', error);
@@ -200,11 +200,11 @@ const fetchAndSaveOptionChainData = async (option, symbol) => {
     if (optionChainData && optionChainData.optionChainDetails) {
       return JSON.parse(optionChainData);
     } else {
-      console.error(`Invalid optionChainData for ${symbol} ${option?.date} ${option?.strikePrice}:`, optionChainData);
+      console.error(`Invalid optionChainData for ${symbol} ${option?.date} :`, optionChainData);
       return null;
     }
   } catch (error) {
-    console.error(`Error occurred for ${symbol || 'Unknown Symbol'} ${option?.date} ${option?.strikePrice}:`, error);
+    console.error(`Error occurred for ${symbol || 'Unknown Symbol'} ${option?.date}`, error);
     return null;
   }
 };
@@ -234,7 +234,7 @@ const processOptionData = async (symbol, allowedDays) => {
         setTimeout(async () => {
           const data = await fetchAndSaveOptionChainData(paramsData[i], symbol);
           if (!data || !(Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0)) {
-            console.warn(`No data available for ${symbol} ${paramsData[i].date} ${paramsData[i].strikePrice}`);
+            console.warn(`No data available for ${symbol} ${paramsData[i].date}`);
             return;
           }
           const { bestBids, bestAsks, ...newobj } = data.optionChainDetails[0];
@@ -248,7 +248,7 @@ const processOptionData = async (symbol, allowedDays) => {
           displayProgressBar(completedItems, totalItems, progressBarLength);
 
           if (completedItems === totalItems) myEmitter.emit('myEvent', arr, totalOiSum, volumeSum, symbol);
-        }, i * 600);
+        }, i * 400);
       }
       console.log('All option data added successfully');
     });
@@ -279,4 +279,4 @@ getSessionToken().then((x) => {
   console.log('session token', x);
 });
 
-app.listen(PORT, () => console.log(`Oihelper app listening on port ${PORT}!`));
+app.listen(PORT, () => console.log(`Oihelper ${appName} listening on port ${PORT}!`));

@@ -177,9 +177,15 @@ myEmitter.on('myEvent', async (i, totalOiSum, volumeSum, symbol) => {
 });
 
 const fetchAndSaveOptionChainData = async (option, symbol) => {
-  const expiryDate =
-    symbol === 'NIFTY' ? getNextNiftyExpiry() : symbol === 'BANKNIFTY' ? getNextBankNiftyExpiry() : null;
   try {
+    const expiryDate =
+      symbol === 'NIFTY' ? getNextNiftyExpiry() : symbol === 'BANKNIFTY' ? getNextBankNiftyExpiry() : null;
+
+    if (!expiryDate) {
+      console.error(`Invalid expiryDate for ${symbol}`);
+      return null;
+    }
+
     const options = {
       expiryDate: expiryDate,
       optionType: option.type === 'CE' ? 'CE' : 'PE',
@@ -190,9 +196,16 @@ const fetchAndSaveOptionChainData = async (option, symbol) => {
     const sessionToken = await getSessionToken();
     await sn.snapi.setSessionToken(sessionToken);
     const optionChainData = await sn.snapi.optionchain(symbol, options);
-    return JSON.parse(optionChainData);
+
+    if (optionChainData && optionChainData.optionChainDetails) {
+      return JSON.parse(optionChainData);
+    } else {
+      console.error(`Invalid optionChainData for ${symbol} ${option?.date} ${option?.strikePrice}:`, optionChainData);
+      return null;
+    }
   } catch (error) {
     console.error(`Error occurred for ${symbol || 'Unknown Symbol'} ${option?.date} ${option?.strikePrice}:`, error);
+    return null;
   }
 };
 
@@ -220,7 +233,7 @@ const processOptionData = async (symbol, allowedDays) => {
       for (let i = 0; i < totalItems; i++) {
         setTimeout(async () => {
           const data = await fetchAndSaveOptionChainData(paramsData[i], symbol);
-          if (!(Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0)) {
+          if (!data || !(Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0)) {
             console.warn(`No data available for ${symbol} ${paramsData[i].date} ${paramsData[i].strikePrice}`);
             return;
           }

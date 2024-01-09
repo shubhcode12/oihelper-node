@@ -257,7 +257,7 @@ const processOptionData = async (symbol, allowedDays) => {
           } catch (error) {
             console.error(`Error occurred for ${symbol} ${paramsData[i].date}`, error);
           }
-        }, i * 400);
+        }, i * 600);
       }
       console.log('All option data added successfully');
     });

@@ -109,7 +109,7 @@ const getSessionToken = async () => {
     const loginResponse = await sn.snapi.userLogin(logindata);
     const response = JSON.parse(loginResponse);
     const sessionToken = response['sessionToken'];
-    await client.set('sessionToken', sessionToken, 12 * 60 * 60);
+    await client.setEx('sessionToken', 12 * 60 * 60, sessionToken);
     return sessionToken;
   } catch (error) {
     console.error('Error in getSessionToken:', error);

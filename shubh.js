@@ -7,9 +7,10 @@ const { createClient } = require('redis');
 const client = createClient({
   url: process.env.REDIS_URL,
 });
-client.connect().then(x=>{
-  console.log("connected to redis")
-})
+
+client.connect().then((x) => {
+  console.log('connected to redis');
+});
 
 const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_CREDENTIALS_BASE64, 'base64').toString());
 
@@ -100,8 +101,7 @@ const databaseFlush = (symbol) => {
 
 const getSessionToken = async () => {
   try {
-    const cachedToken =  await client.get('sessionToken');
-    console.log('🚀 ~ file: shubh.js:95 ~ getSessionToken ~ cachedToken:', cachedToken);
+    const cachedToken = await client.get('sessionToken');
     if (cachedToken) {
       return cachedToken;
     }
@@ -230,7 +230,7 @@ const processOptionData = async (symbol, allowedDays) => {
           arr.push(newobj);
           totalOiSum += parseFloat(newobj.openInterest);
           volumeSum += parseFloat(newobj.volume);
-          
+
           completedItems++;
           displayProgressBar(completedItems, totalItems, progressBarLength);
 
@@ -244,12 +244,14 @@ const processOptionData = async (symbol, allowedDays) => {
   }
 };
 
-app.get('/nifty', (req, res) => {
+app.get('/nifty', async (req, res) => {
+  const token = await getSessionToken();
   processOptionData('NIFTY', [1, 2, 3, 4, 5, 6, 7]);
   res.send('calculation done');
 });
 
-app.get('/banknifty', (req, res) => {
+app.get('/banknifty', async (req, res) => {
+  const token = await getSessionToken();
   processOptionData('BANKNIFTY', [1, 2, 3, 4, 5, 6, 7]);
   res.send('calculation done');
 });
@@ -258,6 +260,10 @@ app.get('/dataflush', (req, res) => {
   databaseFlush('NIFTY');
   databaseFlush('BANKNIFTY');
   res.status(200).json({ message: 'Data flushed successfully.' });
+});
+
+getSessionToken().then((x) => {
+  console.log('session token', x);
 });
 
 app.listen(PORT, () => console.log(`Oihelper app listening on port ${PORT}!`));

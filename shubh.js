@@ -2,9 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const admin = require('firebase-admin');
 const sn = require('stocknotejsbridge');
-const { set, get } = new (require('node-cache'))();
+const { createClient } = require('redis');
 
-// Load Firebase BASE64 Creds
+const client = createClient({
+  url: process.env.REDIS_URL,
+});
+client.connect().then(x=>{
+  console.log("connected to redis")
+})
+
 const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_CREDENTIALS_BASE64, 'base64').toString());
 
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount), databaseURL: process.env.DATABASE_URL });
@@ -37,9 +43,12 @@ const bankniftyExpiryArray = [
 ];
 
 const getNextExpiry = (datesArray) =>
-    datesArray
-        .filter((date) => date > new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0])
-        .sort()[0] || null;
+  datesArray
+    .filter(
+      (date) =>
+        date > new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
+    )
+    .sort()[0] || null;
 
 const getNextNiftyExpiry = () => getNextExpiry(niftyExpiryArray);
 const getNextBankNiftyExpiry = () => getNextExpiry(bankniftyExpiryArray);
@@ -91,13 +100,16 @@ const databaseFlush = (symbol) => {
 
 const getSessionToken = async () => {
   try {
-    const cachedToken = await get('sessionToken');
-    if (cachedToken) return cachedToken;
+    const cachedToken =  await client.get('sessionToken');
+    console.log('🚀 ~ file: shubh.js:95 ~ getSessionToken ~ cachedToken:', cachedToken);
+    if (cachedToken) {
+      return cachedToken;
+    }
 
     const loginResponse = await sn.snapi.userLogin(logindata);
     const response = JSON.parse(loginResponse);
     const sessionToken = response['sessionToken'];
-    set('sessionToken', sessionToken, 12 * 60 * 60);
+    await client.set('sessionToken', sessionToken, 12 * 60 * 60);
     return sessionToken;
   } catch (error) {
     console.error('Error in getSessionToken:', error);

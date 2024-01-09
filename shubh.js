@@ -233,7 +233,7 @@ const processOptionData = async (symbol, allowedDays) => {
       for (let i = 0; i < totalItems; i++) {
         setTimeout(async () => {
           const data = await fetchAndSaveOptionChainData(paramsData[i], symbol);
-          if (!data || !(Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0)) {
+          if (!(Array.isArray(data.optionChainDetails) && data.optionChainDetails.length > 0)) {
             console.warn(`No data available for ${symbol} ${paramsData[i].date}`);
             return;
           }
